@@ -329,6 +329,54 @@
 
         }
 
+
+        /* GOOGLE AUTH */
+        .auth-btn {
+            border: 0;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .auth-btn.google {
+            background: #7868ff;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: bold;
+            box-shadow: 0 8px 25px rgba(120,104,255,0.22);
+        }
+
+        .auth-btn.google:hover {
+            transform: translateY(-2px);
+        }
+
+        .auth-user {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: #c8cee4;
+            font-size: 14px;
+        }
+
+        .logout-btn {
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            padding: 9px 13px;
+            border-radius: 9px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        @media (max-width: 800px) {
+            .auth-user {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
     </style>
 
 </head>
@@ -350,6 +398,15 @@
             <a href="events.html">الأحداث</a>
 
             <a href="#about">عن المشروع</a>
+
+            <button id="google-login" class="auth-btn google" type="button">
+                🔐 تسجيل الدخول بجوجل
+            </button>
+
+            <span id="auth-user" class="auth-user">
+                <span id="user-name"></span>
+                <button id="logout-btn" class="logout-btn" type="button">تسجيل الخروج</button>
+            </span>
 
         </nav>
 
@@ -584,6 +641,69 @@
 
     </footer>
 
+
+
+    <!-- SUPABASE GOOGLE AUTH -->
+    <script type="module">
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+        const SUPABASE_URL = "https://kcbdjytoyrrsnmskxcoo.supabase.co";
+        const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_1DUEgh0Z4kaT4DKJyKyGwg_XAwX0uC4";
+
+        const supabase = createClient(
+            SUPABASE_URL,
+            SUPABASE_PUBLISHABLE_KEY
+        );
+
+        const loginButton = document.getElementById("google-login");
+        const userBox = document.getElementById("auth-user");
+        const userName = document.getElementById("user-name");
+        const logoutButton = document.getElementById("logout-btn");
+
+        async function updateAuthUI() {
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (user) {
+                loginButton.style.display = "none";
+                userBox.style.display = "inline-flex";
+                userName.textContent = "مرحبًا، " + (user.user_metadata?.full_name || user.email || "المستخدم");
+            } else {
+                loginButton.style.display = "inline-block";
+                userBox.style.display = "none";
+                userName.textContent = "";
+            }
+        }
+
+        loginButton.addEventListener("click", async () => {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    redirectTo: window.location.origin + "/"
+                }
+            });
+
+            if (error) {
+                alert("حدث خطأ أثناء تسجيل الدخول بجوجل: " + error.message);
+            }
+        });
+
+        logoutButton.addEventListener("click", async () => {
+            const { error } = await supabase.auth.signOut();
+
+            if (error) {
+                alert("حدث خطأ أثناء تسجيل الخروج: " + error.message);
+                return;
+            }
+
+            await updateAuthUI();
+        });
+
+        supabase.auth.onAuthStateChange(() => {
+            updateAuthUI();
+        });
+
+        updateAuthUI();
+    </script>
 
 </body>
 
