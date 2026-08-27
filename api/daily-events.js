@@ -1,10 +1,8 @@
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
-  "https://kcbdjytoyrrsnmskxcoo.supabase.co";
+  "https://kcbdjytoyrsrnmskxcoo.supabase.co";
 
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function escapeHtml(value = "") {
   return String(value)
@@ -14,10 +12,10 @@ function escapeHtml(value = "") {
     .replace(/"/g, "&quot;");
 }
 
-function formatDate(dateValue) {
-  if (!dateValue) return "غير محدد";
+function formatDate(value) {
+  if (!value) return "غير محدد";
 
-  const date = new Date(dateValue);
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return "غير محدد";
@@ -29,147 +27,170 @@ function formatDate(dateValue) {
   });
 }
 
-function getPlatformName(event) {
+function platformName(event) {
   return (
     event.platform_name ||
     event.platform ||
     event.platforms?.name ||
-    event.platforms?.title_ar ||
     `Platform #${event.platform_id ?? "غير محدد"}`
   );
 }
 
-function getTitle(event) {
+function eventTitle(event) {
   return (
     event.title_ar ||
     event.title_en ||
     event.title ||
-    "Crypto Event"
+    "حدث Crypto"
   );
 }
 
-function getDescription(event) {
+function eventDescription(event) {
   return (
     event.description_ar ||
     event.description_en ||
     event.description ||
-    "راجع التفاصيل الرسمية للحدث."
+    "راجع الشروط الرسمية للحدث."
   );
 }
 
-function getReward(event) {
+function eventReward(event) {
   return (
     event.reward_ar ||
     event.reward_en ||
     event.reward ||
-    "راجع المكافأة في الصفحة الرسمية."
+    "راجع تفاصيل المكافأة الرسمية."
   );
 }
 
 function buildRequirements(event) {
-  const requirements = [];
+  const items = [];
 
   if (event.registration_required !== false) {
-    requirements.push("التسجيل في الحدث");
+    items.push("التسجيل في الحدث");
   }
 
   if (event.new_users_only === true) {
-    requirements.push("للمستخدمين الجدد فقط");
+    items.push("للمستخدمين الجدد فقط");
   }
 
   if (event.existing_users_allowed === false) {
-    requirements.push("غير متاح للمستخدمين الحاليين");
+    items.push("غير متاح للمستخدمين الحاليين");
   }
 
   if (event.kyc_required === true) {
-    requirements.push("إتمام KYC مطلوب");
+    items.push("إتمام KYC مطلوب");
   }
 
-  if (event.deposit_required !== null && event.deposit_required !== undefined) {
-    requirements.push(`الإيداع المطلوب: ${event.deposit_required} USDT`);
+  if (
+    event.deposit_required !== null &&
+    event.deposit_required !== undefined
+  ) {
+    items.push(`الإيداع المطلوب: ${event.deposit_required} USDT`);
   }
 
-  if (event.volume_required !== null && event.volume_required !== undefined) {
-    requirements.push(`حجم التداول المطلوب: ${event.volume_required} USDT`);
+  if (
+    event.volume_required !== null &&
+    event.volume_required !== undefined
+  ) {
+    items.push(`حجم التداول المطلوب: ${event.volume_required} USDT`);
   }
 
   if (event.trade_type) {
-    requirements.push(`نوع التداول: ${event.trade_type}`);
+    items.push(`نوع التداول: ${event.trade_type}`);
   }
 
   if (event.min_trade !== null && event.min_trade !== undefined) {
-    requirements.push(`الحد الأدنى للصفقة: ${event.min_trade} USDT`);
+    items.push(`الحد الأدنى للصفقة: ${event.min_trade} USDT`);
   }
 
   if (event.region_restrictions) {
-    requirements.push(`القيود الجغرافية: ${event.region_restrictions}`);
+    items.push(`القيود الجغرافية: ${event.region_restrictions}`);
   }
 
-  return requirements.length
-    ? requirements.map((item) => `• ${escapeHtml(item)}`).join("\n")
-    : "• راجع شروط الحدث الرسمية";
+  if (items.length === 0) {
+    return "• راجع شروط الحدث الرسمية";
+  }
+
+  return items
+    .map((item) => `• ${escapeHtml(item)}`)
+    .join("\n");
 }
 
 function buildCaption(event, index) {
-  const platform = getPlatformName(event);
-  const title = getTitle(event);
-  const description = getDescription(event);
-  const reward = getReward(event);
-
-  return [
-    `🔥 <b>${escapeHtml(title)}</b>`,
-    `🏦 <b>المنصة:</b> ${escapeHtml(platform)}`,
+  const lines = [
+    `🔥 <b>${escapeHtml(eventTitle(event))}</b>`,
+    `🏦 <b>المنصة:</b> ${escapeHtml(platformName(event))}`,
     "",
-    `🎁 <b>المكافأة</b>`,
-    escapeHtml(reward),
+    "🎁 <b>المكافأة</b>",
+    escapeHtml(eventReward(event)),
     "",
-    `📝 <b>التفاصيل</b>`,
-    escapeHtml(description),
+    "📝 <b>التفاصيل</b>",
+    escapeHtml(eventDescription(event)),
     "",
-    `📋 <b>المطلوب</b>`,
+    "📋 <b>المطلوب</b>",
     buildRequirements(event),
     "",
-    `💰 <b>رابط التسجيل</b>`,
+    "💰 <b>رابط التسجيل</b>",
     event.affiliate_url
-      ? `<a href="${escapeHtml(event.affiliate_url)}">اضغط هنا للتسجيل</a>`
+      ? `<a href="${escapeHtml(event.affiliate_url)}">🚀 سجّل من رابط الإحالة</a>`
       : "غير متوفر حاليًا",
     "",
-    `🎯 <b>رابط الحدث الرسمي</b>`,
+    "🎯 <b>رابط الحدث الرسمي</b>",
     event.official_url
-      ? `<a href="${escapeHtml(event.official_url)}">فتح صفحة الحدث</a>`
+      ? `<a href="${escapeHtml(event.official_url)}">🔗 افتح الحدث</a>`
       : "غير متوفر حاليًا",
     "",
     `📅 <b>يبدأ:</b> ${formatDate(event.start_at)}`,
     `⏰ <b>ينتهي:</b> ${formatDate(event.end_at)}`,
-    `🎁 <b>التوزيع:</b> ${formatDate(event.distribution_date)}`,
-    "",
-    event.affiliate_code
-      ? `🏷️ <b>كود الإحالة:</b> ${escapeHtml(event.affiliate_code)}`
-      : "",
-    event.source_url
-      ? `🔎 <b>المصدر:</b> <a href="${escapeHtml(event.source_url)}">تحقق من المصدر</a>`
-      : "",
+    `🎁 <b>التوزيع:</b> ${formatDate(event.distribution_date)}`
+  ];
+
+  if (event.affiliate_code) {
+    lines.push(
+      "",
+      `🏷️ <b>كود الإحالة:</b> ${escapeHtml(event.affiliate_code)}`
+    );
+  }
+
+  if (event.source_url) {
+    lines.push(
+      "",
+      `🔎 <b>المصدر:</b> <a href="${escapeHtml(
+        event.source_url
+      )}">تحقق من المصدر</a>`
+    );
+  }
+
+  if (event.last_verified_at) {
+    lines.push(
+      `✅ <b>آخر تحقق:</b> ${formatDate(event.last_verified_at)}`
+    );
+  }
+
+  lines.push(
     "",
     "━━━━━━━━━━━━━━",
     "🍎 <b>Crypto Events</b>",
     `📌 الحدث رقم ${index}`
-  ]
-    .filter(Boolean)
-    .join("\n");
+  );
+
+  return lines.join("\n");
 }
 
 async function supabaseGet(path) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    throw new Error(
-      "Supabase environment variables are not configured"
-    );
+  if (!SUPABASE_URL) {
+    throw new Error("SUPABASE_URL is not configured");
+  }
+
+  if (!SUPABASE_KEY) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
   }
 
   const response = await fetch(`${SUPABASE_URL}${path}`, {
     method: "GET",
     headers: {
       apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
       "Content-Type": "application/json"
     }
   });
@@ -215,51 +236,63 @@ async function telegramRequest(method, body, token) {
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({
+      success: false,
       error: "Method not allowed"
     });
   }
 
   try {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+    const telegramChatId = process.env.TELEGRAM_CHAT_ID;
 
-    if (!token) {
+    if (!telegramToken) {
       return res.status(500).json({
+        success: false,
         error: "TELEGRAM_BOT_TOKEN is not configured"
       });
     }
 
-    if (!chatId) {
+    if (!telegramChatId) {
       return res.status(500).json({
+        success: false,
         error: "TELEGRAM_CHAT_ID is not configured"
       });
     }
 
     const now = new Date().toISOString();
 
-    const events = await supabaseGet(
-      `/rest/v1/events?select=*&status=eq.active&start_at=lte.${encodeURIComponent(
-        now
-      )}&end_at=gte.${encodeURIComponent(now)}&order=priority.desc,start_at.asc`
-    );
+    const query =
+      `/rest/v1/events` +
+      `?select=*` +
+      `&status=eq.active` +
+      `&start_at=lte.${encodeURIComponent(now)}` +
+      `&end_at=gte.${encodeURIComponent(now)}` +
+      `&order=priority.desc,start_at.asc`;
+
+    const events = await supabaseGet(query);
 
     if (!Array.isArray(events)) {
-      throw new Error("Invalid events response from Supabase");
+      throw new Error("Supabase returned invalid events data");
     }
 
     if (events.length === 0) {
-      const message =
-        "📅 <b>Crypto Events — الملخص اليومي</b>\n\n" +
-        "ℹ️ لا توجد أحداث متاحة حاليًا.";
+      const message = [
+        "📅 <b>Crypto Events — الأحداث المتاحة الآن</b>",
+        "",
+        "ℹ️ لا توجد أحداث متاحة حاليًا.",
+        "",
+        "🍎 <b>Crypto Events</b>"
+      ].join("\n");
 
       const result = await telegramRequest(
         "sendMessage",
         {
-          chat_id: chatId,
+          chat_id: telegramChatId,
           text: message,
-          parse_mode: "HTML"
+          parse_mode: "HTML",
+          disable_web_page_preview: false
         },
-        token
+        telegramToken
       );
 
       return res.status(200).json({
@@ -276,23 +309,22 @@ export default async function handler(req, res) {
       "",
       ...events.map(
         (event, index) =>
-          `${index + 1}️⃣ ${escapeHtml(getPlatformName(event))} — ${escapeHtml(
-            getTitle(event)
-          )}`
+          `${index + 1}️⃣ <b>${escapeHtml(
+            platformName(event)
+          )}</b> — ${escapeHtml(eventTitle(event))}`
       ),
       "",
-      "👇 <b>التفاصيل الكاملة:</b>"
+      "👇 <b>تفاصيل كل حدث بالأسفل</b>"
     ];
 
     await telegramRequest(
       "sendMessage",
       {
-        chat_id: chatId,
+        chat_id: telegramChatId,
         text: summary.join("\n"),
-        parse_mode: "HTML",
-        disable_web_page_preview: false
+        parse_mode: "HTML"
       },
-      token
+      telegramToken
     );
 
     const results = [];
@@ -301,58 +333,52 @@ export default async function handler(req, res) {
       const event = events[index];
       const caption = buildCaption(event, index + 1);
 
-      let telegramResult;
+      let result;
+      let imageSent = false;
 
-      try {
-        if (event.image_url) {
-          telegramResult = await telegramRequest(
+      if (event.image_url) {
+        try {
+          result = await telegramRequest(
             "sendPhoto",
             {
-              chat_id: chatId,
+              chat_id: telegramChatId,
               photo: event.image_url,
               caption,
               parse_mode: "HTML"
             },
-            token
+            telegramToken
           );
-        } else {
-          telegramResult = await telegramRequest(
-            "sendMessage",
-            {
-              chat_id: chatId,
-              text: caption,
-              parse_mode: "HTML",
-              disable_web_page_preview: false
-            },
-            token
+
+          imageSent = true;
+        } catch (imageError) {
+          console.warn(
+            `Image failed for event ${event.id}:`,
+            imageError.message
           );
         }
-      } catch (imageError) {
-        console.warn(
-          `Image failed for event ${event.id}:`,
-          imageError.message
-        );
+      }
 
-        telegramResult = await telegramRequest(
+      if (!result) {
+        result = await telegramRequest(
           "sendMessage",
           {
-            chat_id: chatId,
+            chat_id: telegramChatId,
             text:
               caption +
-              "\n\n📷 <i>تعذر تحميل صورة الحدث حاليًا.</i>",
+              "\n\n📷 <i>صورة الحدث غير متاحة حاليًا.</i>",
             parse_mode: "HTML",
             disable_web_page_preview: false
           },
-          token
+          telegramToken
         );
       }
 
       results.push({
         id: event.id,
-        title: getTitle(event),
-        platform: getPlatformName(event),
-        imageSent: Boolean(event.image_url),
-        messageId: telegramResult.result?.message_id || null
+        platform: platformName(event),
+        title: eventTitle(event),
+        imageSent,
+        messageId: result.result?.message_id || null
       });
     }
 
