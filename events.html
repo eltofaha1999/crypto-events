@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Crypto Events - الأحداث</title>
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Tahoma, sans-serif;
+            background:
+                radial-gradient(circle at top right, #202b68 0%, transparent 35%),
+                radial-gradient(circle at bottom left, #30145f 0%, transparent 35%),
+                #070b17;
+            color: white;
+            min-height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            padding: 20px 7%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 15, 32, 0.88);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(15px);
+        }
+
+        .logo {
+            font-size: 25px;
+            font-weight: bold;
+        }
+
+        .logo span {
+            color: #8b7cff;
+        }
+
+        nav {
+            display: flex;
+            gap: 25px;
+        }
+
+        nav a {
+            color: #c8cee4;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        nav a:hover,
+        nav a.active {
+            color: #ffffff;
+        }
+
+        .page {
+            width: 88%;
+            max-width: 1200px;
+            margin: 65px auto;
+        }
+
+        .title {
+            text-align: center;
+            margin-bottom: 45px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 30px;
+            background: rgba(139,124,255,0.12);
+            border: 1px solid rgba(139,124,255,0.25);
+            color: #aaa0ff;
+            margin-bottom: 18px;
+        }
+
+        .title h1 {
+            font-size: 48px;
+            margin-bottom: 14px;
+        }
+
+        .title p {
+            color: #929bb5;
+            font-size: 17px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 35px;
+            flex-wrap: wrap;
+        }
+
+        .search {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search input {
+            width: 100%;
+            padding: 15px 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: white;
+            outline: none;
+            font-size: 15px;
+        }
+
+        .search input::placeholder {
+            color: #737c96;
+        }
+
+        .filters {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+        }
+
+        .filter {
+            padding: 12px 17px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #cbd1e4;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .filter:hover,
+        .filter.active {
+            background: #7868ff;
+            border-color: #7868ff;
+            color: white;
+        }
+
+        .events {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 22px;
+        }
+
+        .event-card {
+            position: relative;
+            overflow: hidden;
+            padding: 25px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: 0.3s;
+        }
+
+        .event-card:hover {
+            transform: translateY(-7px);
+            border-color: rgba(139,124,255,0.5);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.22);
+        }
+
+        .event-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 3px;
+            background: #7868ff;
+        }
+
+        .event-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .platform {
+            padding: 7px 12px;
+            border-radius: 8px;
+            background: rgba(139,124,255,0.12);
+            color: #aaa0ff;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .status {
+            color: #65e6a1;
+            font-size: 13px;
+        }
+
+        .event-card h2 {
+            font-size: 21px;
+            margin-bottom: 12px;
+        }
+
+        .description {
+            min-height: 75px;
+            color: #929bb5;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+
+        .reward {
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(120,104,255,0.08);
+            margin-bottom: 18px;
+        }
+
+        .reward small {
+            display: block;
+            color: #7e88a3;
+            margin-bottom: 4px;
+        }
+
+        .reward strong {
+            color: #b4aaff;
+            font-size: 19px;
+        }
+
+        .details {
+            display: flex;
+            justify-content: space-between;
+            color: #747e99;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        .button {
+            display: block;
+            text-align: center;
+            padding: 13px;
+            border-radius: 10px;
+            background: #7868ff;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: #7c86a0;
+            background: rgba(255,255,255,0.03);
+            border-radius: 18px;
+        }
+
+        footer {
+            margin-top: 90px;
+            padding: 35px 20px;
+            text-align: center;
+            color: #727b96;
+            background: rgba(255,255,255,0.02);
+            border-top: 1px solid rgba(255,255,255,0.07);
+        }
+
+        @media (max-width: 950px) {
+
+            .events {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+        }
+
+        @media (max-width: 650px) {
+
+            header {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            nav {
+                gap: 18px;
+            }
+
+            .page {
+                width: 92%;
+                margin-top: 40px;
+            }
+
+            .title h1 {
+                font-size: 36px;
+            }
+
+            .toolbar {
+                flex-direction: column;
+            }
+
+            .events {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+
+<header>
+
+    <div class="logo">
+        🍎 <span>Crypto</span> Events
+    </div>
+
+    <nav>
+
+        <a href="index.html">
+            الرئيسية
+        </a>
+
+        <a href="events.html" class="active">
+            الأحداث
+        </a>
+
+    </nav>
+
+</header>
+
+
+<main class="page">
+
+
+    <section class="title">
+
+        <div class="badge">
+            🚀 اكتشف الفرص
+        </div>
+
+        <h1>
+            أحدث الأحداث
+        </h1>
+
+        <p>
+            جميع الحملات والمكافآت المتاحة في مكان واحد.
+        </p>
+
+    </section>
+
+
+    <section class="toolbar">
+
+        <div class="search">
+
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="🔍 ابحث عن حدث أو منصة..."
+            >
+
+        </div>
+
+
+        <div class="filters">
+
+            <button
+                class="filter active"
+                data-filter="all"
+            >
+                الكل
+            </button>
+
+            <button
+                class="filter"
+                data-filter="Bybit"
+            >
+                Bybit
+            </button>
+
+            <button
+                class="filter"
+                data-filter="Binance"
+            >
+                Binance
+            </button>
+
+            <button
+                class="filter"
+                data-filter="Bitget"
+            >
+                Bitget
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <section
+        class="events"
+        id="eventsList"
+    >
+
+    </section>
+
+
+</main>
+
+
+<footer>
+
+    © 2026 Crypto Events
+
+    <br><br>
+
+    جميع الحقوق محفوظة
+
+</footer>
+
+
+<!-- تحميل بيانات الأحداث -->
+
+<script src="events.js"></script>
+
+
+<script>
+
+    let currentFilter = "all";
+
+
+    const eventsList =
+        document.getElementById("eventsList");
+
+    const searchInput =
+        document.getElementById("searchInput");
+
+
+    function renderEvents() {
+
+        const search =
+            searchInput.value
+            .toLowerCase()
+            .trim();
+
+
+        const filteredEvents =
+            events.filter(event => {
+
+                const matchesPlatform =
+                    currentFilter === "all" ||
+                    event.platform === currentFilter;
+
+
+                const searchableText =
+                    (
+                        event.title +
+                        " " +
+                        event.platform +
+                        " " +
+                        event.description +
+                        " " +
+                        event.type
+                    ).toLowerCase();
+
+
+                const matchesSearch =
+                    searchableText.includes(search);
+
+
+                return (
+                    matchesPlatform &&
+                    matchesSearch
+                );
+
+            });
+
+
+        eventsList.innerHTML = "";
+
+
+        if (filteredEvents.length === 0) {
+
+            eventsList.innerHTML = `
+                <div class="empty">
+                    🔍 لا توجد أحداث مطابقة لبحثك.
+                </div>
+            `;
+
+            return;
+        }
+
+
+        filteredEvents.forEach(event => {
+
+            const card =
+                document.createElement("article");
+
+
+            card.className =
+                "event-card";
+
+
+            card.innerHTML = `
+
+                <div class="event-top">
+
+                    <span class="platform">
+                        ${event.platform}
+                    </span>
+
+                    <span class="status">
+                        ● ${event.status}
+                    </span>
+
+                </div>
+
+
+                <h2>
+                    ${event.title}
+                </h2>
+
+
+                <p class="description">
+                    ${event.description}
+                </p>
+
+
+                <div class="reward">
+
+                    <small>
+                        المكافأة
+                    </small>
+
+                    <strong>
+                        ${event.reward}
+                    </strong>
+
+                </div>
+
+
+                <div class="details">
+
+                    <span>
+                        📌 ${event.type}
+                    </span>
+
+                    <span>
+                        ${event.platform}
+                    </span>
+
+                </div>
+
+
+                <a
+                    href="event.html?id=${encodeURIComponent(event.id)}"
+                    class="button"
+                >
+                    عرض التفاصيل
+                </a>
+
+            `;
+
+
+            eventsList.appendChild(card);
+
+        });
+
+    }
+
+
+    document
+        .querySelectorAll(".filter")
+        .forEach(button => {
+
+            button.addEventListener("click", function () {
+
+                document
+                    .querySelectorAll(".filter")
+                    .forEach(btn => {
+                        btn.classList.remove("active");
+                    });
+
+
+                this.classList.add("active");
+
+
+                currentFilter =
+                    this.dataset.filter;
+
+
+                renderEvents();
+
+            });
+
+        });
+
+
+    searchInput.addEventListener(
+        "input",
+        renderEvents
+    );
+
+
+    renderEvents();
+
+</script>
+
+
+</body>
+
+</html>

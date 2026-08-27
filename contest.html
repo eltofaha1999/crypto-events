@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>المسابقة الأسبوعية | Crypto Events</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+
+    font-family:Arial,Tahoma,sans-serif;
+
+    background:
+    radial-gradient(circle at top right,#202b68 0%,transparent 35%),
+    radial-gradient(circle at bottom left,#30145f 0%,transparent 35%),
+    #070b17;
+
+    color:#fff;
+
+    min-height:100vh;
+
+    line-height:1.7;
+}
+
+
+header{
+
+    position:sticky;
+
+    top:0;
+
+    z-index:100;
+
+    width:100%;
+
+    padding:20px 7%;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    background:rgba(10,15,32,.88);
+
+    border-bottom:1px solid rgba(255,255,255,.08);
+
+    backdrop-filter:blur(15px);
+}
+
+
+.logo{
+
+    font-size:25px;
+
+    font-weight:bold;
+}
+
+
+.logo span{
+
+    color:#8b7cff;
+}
+
+
+nav{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:22px;
+
+    flex-wrap:wrap;
+}
+
+
+nav a{
+
+    color:#c8cee4;
+
+    text-decoration:none;
+
+    font-size:15px;
+
+}
+
+
+nav a:hover{
+
+    color:white;
+}
+
+
+.language-btn{
+
+    padding:8px 13px;
+
+    border-radius:9px;
+
+    border:1px solid rgba(255,255,255,.12);
+
+    background:rgba(255,255,255,.05);
+
+    color:white;
+
+    cursor:pointer;
+
+    font-weight:bold;
+}
+
+
+.container{
+
+    width:88%;
+
+    max-width:1150px;
+
+    margin:55px auto;
+}
+
+
+.hero{
+
+    text-align:center;
+
+    margin-bottom:40px;
+}
+
+
+.badge{
+
+    display:inline-block;
+
+    padding:8px 16px;
+
+    border-radius:30px;
+
+    background:rgba(139,124,255,.12);
+
+    border:1px solid rgba(139,124,255,.25);
+
+    color:#aaa0ff;
+
+    margin-bottom:18px;
+}
+
+
+.hero h1{
+
+    font-size:46px;
+
+    margin-bottom:12px;
+}
+
+
+.hero p{
+
+    color:#929bb5;
+
+    font-size:17px;
+}
+
+
+.week-box{
+
+    background:rgba(255,255,255,.045);
+
+    border:1px solid rgba(255,255,255,.08);
+
+    border-radius:22px;
+
+    padding:25px;
+
+    margin-bottom:25px;
+
+    text-align:center;
+}
+
+
+.week-title{
+
+    color:#aaa0ff;
+
+    font-size:14px;
+
+    margin-bottom:5px;
+}
+
+
+.week-date{
+
+    font-size:25px;
+
+    font-weight:bold;
+}
+
+
+.status{
+
+    display:inline-block;
+
+    margin-top:10px;
+
+    color:#65e6a1;
+
+    font-size:14px;
+}
+
+
+.grid{
+
+    display:grid;
+
+    grid-template-columns:1.2fr .8fr;
+
+    gap:22px;
+}
+
+
+.card{
+
+    background:rgba(255,255,255,.045);
+
+    border:1px solid rgba(255,255,255,.08);
+
+    border-radius:20px;
+
+    padding:25px;
+}
+
+
+.card h2{
+
+    font-size:22px;
+
+    margin-bottom:20px;
+}
+
+
+.task{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    gap:15px;
+
+    padding:16px;
+
+    margin-bottom:12px;
+
+    border-radius:13px;
+
+    background:rgba(255,255,255,.035);
+
+    border:1px solid rgba(255,255,255,.05);
+}
+
+
+.task-info{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+}
+
+
+.task-icon{
+
+    width:40px;
+
+    height:40px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    border-radius:10px;
+
+    background:rgba(120,104,255,.12);
+
+    font-size:20px;
+}
+
+
+.task-name{
+
+    font-weight:bold;
+}
+
+
+.task-platform{
+
+    color:#737d98;
+
+    font-size:12px;
+}
+
+
+.task-points{
+
+    color:#b4aaff;
+
+    font-weight:bold;
+
+    white-space:nowrap;
+}
+
+
+.task-button{
+
+    margin-top:8px;
+
+    padding:9px 13px;
+
+    border-radius:8px;
+
+    border:none;
+
+    background:#7868ff;
+
+    color:white;
+
+    cursor:pointer;
+
+    font-weight:bold;
+}
+
+
+.task-button.completed{
+
+    background:#168b69;
+
+}
+
+
+.uid-box{
+
+    margin-top:22px;
+}
+
+
+.uid-label{
+
+    display:block;
+
+    color:#929bb5;
+
+    margin-bottom:8px;
+
+    font-size:14px;
+}
+
+
+.uid-row{
+
+    display:flex;
+
+    gap:8px;
+}
+
+
+.uid-input{
+
+    flex:1;
+
+    padding:13px;
+
+    border-radius:10px;
+
+    border:1px solid rgba(255,255,255,.1);
+
+    background:rgba(255,255,255,.04);
+
+    color:white;
+
+    outline:none;
+}
+
+
+.save-btn{
+
+    padding:13px 17px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#7868ff;
+
+    color:white;
+
+    cursor:pointer;
+
+    font-weight:bold;
+}
+
+
+.saved-message{
+
+    color:#65e6a1;
+
+    font-size:13px;
+
+    margin-top:7px;
+
+    min-height:20px;
+}
+
+
+.score{
+
+    text-align:center;
+
+    padding:25px;
+
+    border-radius:17px;
+
+    background:rgba(120,104,255,.08);
+
+    border:1px solid rgba(139,124,255,.15);
+
+    margin-bottom:20px;
+}
+
+
+.score-label{
+
+    color:#818ba5;
+
+    font-size:14px;
+}
+
+
+.score-number{
+
+    font-size:43px;
+
+    font-weight:bold;
+
+    color:#b4aaff;
+
+    margin:5px 0;
+}
+
+
+.score-note{
+
+    color:#747e99;
+
+    font-size:12px;
+}
+
+
+.trading{
+
+    padding:20px;
+
+    border-radius:15px;
+
+    background:rgba(101,230,161,.045);
+
+    border:1px solid rgba(101,230,161,.1);
+
+    margin-bottom:20px;
+}
+
+
+.trading h3{
+
+    margin-bottom:13px;
+}
+
+
+.volume{
+
+    font-size:25px;
+
+    font-weight:bold;
+}
+
+
+.progress{
+
+    height:10px;
+
+    margin-top:12px;
+
+    border-radius:20px;
+
+    background:rgba(255,255,255,.08);
+
+    overflow:hidden;
+}
+
+
+.progress-bar{
+
+    width:0%;
+
+    height:100%;
+
+    background:#65e6a1;
+
+    transition:.5s;
+}
+
+
+.progress-text{
+
+    color:#7f8a9f;
+
+    font-size:12px;
+
+    margin-top:7px;
+}
+
+
+.reward-note{
+
+    margin-top:15px;
+
+    padding:13px;
+
+    border-radius:10px;
+
+    background:rgba(120,104,255,.07);
+
+    color:#aaa0ff;
+
+    font-size:13px;
+}
+
+
+.leaderboard{
+
+    margin-top:22px;
+}
+
+
+.player{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:13px;
+
+    border-radius:10px;
+
+    background:rgba(255,255,255,.035);
+
+    margin-bottom:8px;
+}
+
+
+.rank{
+
+    font-weight:bold;
+
+    min-width:40px;
+}
+
+
+.player-name{
+
+    flex:1;
+
+    padding:0 10px;
+}
+
+
+.player-points{
+
+    color:#b4aaff;
+
+    font-weight:bold;
+}
+
+
+.telegram{
+
+    display:block;
+
+    text-align:center;
+
+    margin-top:22px;
+
+    padding:15px;
+
+    border-radius:12px;
+
+    background:rgba(255,255,255,.05);
+
+    border:1px solid rgba(255,255,255,.08);
+
+    color:#fff;
+
+    text-decoration:none;
+
+    font-weight:bold;
+}
+
+
+.notice{
+
+    margin-top:25px;
+
+    padding:18px;
+
+    border-radius:13px;
+
+    background:rgba(255,193,7,.04);
+
+    border:1px solid rgba(255,193,7,.1);
+
+    color:#aeb5c8;
+
+    font-size:13px;
+}
+
+
+footer{
+
+    margin-top:80px;
+
+    padding:35px 20px;
+
+    text-align:center;
+
+    color:#727b96;
+
+    border-top:1px solid rgba(255,255,255,.07);
+
+    background:rgba(255,255,255,.02);
+}
+
+
+@media(max-width:850px){
+
+    header{
+
+        flex-direction:column;
+
+        gap:15px;
+    }
+
+
+    .grid{
+
+        grid-template-columns:1fr;
+    }
+
+
+    .hero h1{
+
+        font-size:36px;
+    }
+
+}
+
+
+@media(max-width:550px){
+
+    .container{
+
+        width:92%;
+
+        margin-top:35px;
+    }
+
+
+    .task{
+
+        align-items:flex-start;
+
+        flex-direction:column;
+    }
+
+
+    .task-points{
+
+        align-self:flex-end;
+    }
+
+
+    .uid-row{
+
+        flex-direction:column;
+    }
+
+
+    .save-btn{
+
+        width:100%;
+    }
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<header>
+
+    <div class="logo">
+
+        🍎 <span>Crypto</span> Events
+
+    </div>
+
+
+    <nav>
+
+        <a href="index.html" data-i18n="home">
+            الرئيسية
+        </a>
+
+        <a href="events.html" data-i18n="events">
+            الأحداث
+        </a>
+
+        <a href="contest.html" data-i18n="contest">
+            المسابقة
+        </a>
+
+        <a href="tasks.html" data-i18n="tasks">
+            المهام
+        </a>
+
+        <button
+            class="language-btn"
+            id="languageButton"
+        >
+            English
+        </button>
+
+    </nav>
+
+</header>
+
+
+
+<main class="container">
+
+
+    <section class="hero">
+
+        <div class="badge">
+            🏆 المسابقة الأسبوعية
+        </div>
+
+
+        <h1>
+            تحدي Crypto Events
+        </h1>
+
+
+        <p>
+            نفذ المهام اليومية واجمع النقاط ونافس على المكافآت الأسبوعية.
+        </p>
+
+    </section>
+
+
+
+    <section class="week-box">
+
+        <div class="week-title">
+            📅 نظام المسابقة
+        </div>
+
+
+        <div
+            class="week-date"
+            id="weekDate"
+        >
+            جاري تحديد الأسبوع...
+        </div>
+
+
+        <div class="status">
+            ● المسابقة نشطة
+        </div>
+
+    </section>
+
+
+
+    <section class="grid">
+
+
+        <!-- TASKS -->
+
+        <div class="card">
+
+            <h2>
+                📋 مهام اليوم
+            </h2>
+
+
+            <div
+                id="tasksList"
+            ></div>
+
+
+            <div class="uid-box">
+
+                <label class="uid-label">
+                    🆔 UID منصة التداول
+                </label>
+
+
+                <div class="uid-row">
+
+                    <input
+                        type="text"
+                        id="uidInput"
+                        class="uid-input"
+                        placeholder="أدخل UID الخاص بك"
+                    >
+
+
+                    <button
+                        class="save-btn"
+                        id="saveUid"
+                    >
+                        حفظ
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="uidMessage"
+                    class="saved-message"
+                ></div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- USER STATS -->
+
+        <div class="card">
+
+            <h2>
+                📊 إحصائياتي
+            </h2>
+
+
+            <div class="score">
+
+                <div class="score-label">
+                    نقاط هذا الأسبوع
+                </div>
+
+
+                <div
+                    class="score-number"
+                    id="score"
+                >
+                    0
+                </div>
+
+
+                <div class="score-note">
+                    النقاط النهائية يتم اعتمادها بعد التحقق.
+                </div>
+
+            </div>
+
+
+
+            <div class="trading">
+
+                <h3>
+                    💰 حجم التداول
+                </h3>
+
+
+                <div
+                    class="volume"
+                    id="volume"
+                >
+                    $0
+                </div>
+
+
+                <div class="progress">
+
+                    <div
+                        class="progress-bar"
+                        id="progressBar"
+                    ></div>
+
+                </div>
+
+
+                <div
+                    class="progress-text"
+                    id="progressText"
+                >
+                    0% من الهدف
+                </div>
+
+
+                <div class="reward-note">
+
+                    🎁 عند الوصول إلى حجم تداول
+                    <strong>$1,000,000</strong>
+                    يتم تأهيل UID المسجل لمكافأة
+                    <strong>$100</strong>
+                    وفقًا للشروط.
+
+                </div>
+
+            </div>
+
+
+
+            <div class="leaderboard">
+
+                <h2>
+                    🏆 المتصدرون
+                </h2>
+
+
+                <div class="player">
+
+                    <span class="rank">
+                        🥇
+                    </span>
+
+                    <span class="player-name">
+                        CryptoUser
+                    </span>
+
+                    <span class="player-points">
+                        1,250
+                    </span>
+
+                </div>
+
+
+                <div class="player">
+
+                    <span class="rank">
+                        🥈
+                    </span>
+
+                    <span class="player-name">
+                        Trader
+                    </span>
+
+                    <span class="player-points">
+                        980
+                    </span>
+
+                </div>
+
+
+                <div class="player">
+
+                    <span class="rank">
+                        🥉
+                    </span>
+
+                    <span class="player-name">
+                        Web3User
+                    </span>
+
+                    <span class="player-points">
+                        750
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <a
+                href="https://t.me/eltofaha1999"
+                target="_blank"
+                class="telegram"
+            >
+                ✈️ تابع الإعلانات على @eltofaha1999
+            </a>
+
+        </div>
+
+    </section>
+
+
+
+    <div class="notice">
+
+        ⚠️ يتم تحديث نقاط المسابقة وحجم التداول بعد التحقق من البيانات.
+        لا تعتمد الأرقام المعروضة حاليًا كبيانات مالية أو كضمان للحصول على مكافأة.
+
+    </div>
+
+
+</main>
+
+
+
+<footer>
+
+    © 2026 Crypto Events
+
+    <br><br>
+
+    جميع الحقوق محفوظة
+
+</footer>
+
+
+
+<script src="language.js"></script>
+
+
+<script>
+
+
+/* =========================
+   WEEK CALCULATION
+========================= */
+
+
+function getSaturdayStart(){
+
+    const now = new Date();
+
+    const day = now.getDay();
+
+    const daysSinceSaturday =
+        (day + 1) % 7;
+
+    const saturday =
+        new Date(now);
+
+    saturday.setDate(
+        now.getDate() -
+        daysSinceSaturday
+    );
+
+    saturday.setHours(
+        0,0,0,0
+    );
+
+    return saturday;
+
+}
+
+
+function formatDate(date){
+
+    return date.toLocaleDateString(
+        currentLanguage === "ar"
+            ? "ar-EG"
+            : "en-US",
+        {
+            year:"numeric",
+            month:"long",
+            day:"numeric"
+        }
+    );
+
+}
+
+
+function updateWeek(){
+
+    const start =
+        getSaturdayStart();
+
+
+    const end =
+        new Date(start);
+
+
+    end.setDate(
+        start.getDate() + 6
+    );
+
+
+    document.getElementById(
+        "weekDate"
+    ).textContent =
+
+        formatDate(start) +
+        " → " +
+        formatDate(end);
+
+}
+
+
+updateWeek();
+
+
+
+/* =========================
+   DAILY TASKS
+========================= */
+
+
+const dailyTasks = [
+
+    {
+        id:"x-like",
+        icon:"❤️",
+        name:"إعجاب بمنشور اليوم",
+        platform:"X / Twitter",
+        points:10
+    },
+
+    {
+        id:"x-repost",
+        icon:"🔁",
+        name:"إعادة نشر منشور اليوم",
+        platform:"X / Twitter",
+        points:20
+    },
+
+    {
+        id:"x-follow",
+        icon:"👤",
+        name:"متابعة الحساب",
+        platform:"X / Twitter",
+        points:15
+    },
+
+    {
+        id:"x-reply",
+        icon:"💬",
+        name:"الرد على المنشور",
+        platform:"X / Twitter",
+        points:15
+    }
+
+];
+
+
+let score =
+    Number(
+        localStorage.getItem(
+            "contestScore"
+        )
+    ) || 0;
+
+
+let completedTasks =
+    JSON.parse(
+        localStorage.getItem(
+            "completedTasks"
+        ) || "[]"
+    );
+
+
+function renderTasks(){
+
+    const list =
+        document.getElementById(
+            "tasksList"
+        );
+
+
+    list.innerHTML = "";
+
+
+    dailyTasks.forEach(task => {
+
+        const completed =
+            completedTasks.includes(
+                task.id
+            );
+
+
+        const div =
+            document.createElement(
+                "div"
+            );
+
+
+        div.className =
+            "task";
+
+
+        div.innerHTML = `
+
+            <div class="task-info">
+
+                <div class="task-icon">
+                    ${task.icon}
+                </div>
+
+                <div>
+
+                    <div class="task-name">
+                        ${task.name}
+                    </div>
+
+                    <div class="task-platform">
+                        ${task.platform}
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <div class="task-points">
+                    +${task.points} نقطة
+                </div>
+
+                <button
+                    class="task-button ${completed ? "completed" : ""}"
+                    onclick="completeTask('${task.id}',${task.points})"
+                    ${completed ? "disabled" : ""}
+                >
+
+                    ${
+                        completed
+                        ? "✅ تم التنفيذ"
+                        : "تنفيذ المهمة"
+                    }
+
+                </button>
+
+            </div>
+
+        `;
+
+
+        list.appendChild(div);
+
+    });
+
+}
+
+
+function completeTask(
+    taskId,
+    points
+){
+
+    if(
+        completedTasks.includes(
+            taskId
+        )
+    ){
+
+        return;
+
+    }
+
+
+    completedTasks.push(
+        taskId
+    );
+
+
+    score += points;
+
+
+    localStorage.setItem(
+        "completedTasks",
+        JSON.stringify(
+            completedTasks
+        )
+    );
+
+
+    localStorage.setItem(
+        "contestScore",
+        score
+    );
+
+
+    document.getElementById(
+        "score"
+    ).textContent =
+        score;
+
+
+    renderTasks();
+
+}
+
+
+document.getElementById(
+    "score"
+).textContent =
+    score;
+
+
+renderTasks();
+
+
+
+/* =========================
+   UID
+========================= */
+
+
+const uidInput =
+    document.getElementById(
+        "uidInput"
+    );
+
+
+const savedUid =
+    localStorage.getItem(
+        "platformUID"
+    );
+
+
+if(savedUid){
+
+    uidInput.value =
+        savedUid;
+
+}
+
+
+document.getElementById(
+    "saveUid"
+).addEventListener(
+    "click",
+    function(){
+
+        const uid =
+            uidInput.value.trim();
+
+
+        if(!uid){
+
+            document.getElementById(
+                "uidMessage"
+            ).textContent =
+                "⚠️ أدخل UID أولًا.";
+
+            return;
+
+        }
+
+
+        localStorage.setItem(
+            "platformUID",
+            uid
+        );
+
+
+        document.getElementById(
+            "uidMessage"
+        ).textContent =
+            "✅ تم حفظ UID.";
+
+    }
+);
+
+
+
+/* =========================
+   DEMO TRADING DISPLAY
+========================= */
+
+
+/*
+    هذه القيمة تجريبية للواجهة فقط.
+    لاحقًا سيتم استبدالها ببيانات
+    حقيقية من Backend بعد التحقق.
+*/
+
+
+const demoVolume = 0;
+
+
+function updateTrading(){
+
+    const target =
+        1000000;
+
+
+    const percentage =
+        Math.min(
+            (demoVolume / target) * 100,
+            100
+        );
+
+
+    document.getElementById(
+        "volume"
+    ).textContent =
+        "$" +
+        demoVolume.toLocaleString();
+
+
+    document.getElementById(
+        "progressBar"
+    ).style.width =
+        percentage + "%";
+
+
+    document.getElementById(
+        "progressText"
+    ).textContent =
+        percentage.toFixed(2) +
+        "% من الهدف";
+
+}
+
+
+updateTrading();
+
+
+
+/* =========================
+   LANGUAGE BUTTON
+========================= */
+
+
+document.getElementById(
+    "languageButton"
+).addEventListener(
+    "click",
+    function(){
+
+        setLanguage(
+            currentLanguage === "ar"
+                ? "en"
+                : "ar"
+        );
+
+
+        updateWeek();
+
+    }
+);
+
+
+</script>
+
+
+</body>
+
+</html>

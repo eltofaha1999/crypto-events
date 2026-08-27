@@ -1,0 +1,1423 @@
+ <!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>تفاصيل الحدث | Crypto Events</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+
+    font-family:Arial,Tahoma,sans-serif;
+
+    background:
+    radial-gradient(circle at top right,#202b68 0%,transparent 35%),
+    radial-gradient(circle at bottom left,#30145f 0%,transparent 35%),
+    #070b17;
+
+    color:white;
+
+    min-height:100vh;
+
+    line-height:1.7;
+}
+
+
+header{
+
+    position:sticky;
+
+    top:0;
+
+    z-index:100;
+
+    padding:20px 7%;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    background:rgba(10,15,32,.88);
+
+    border-bottom:1px solid rgba(255,255,255,.08);
+
+    backdrop-filter:blur(15px);
+}
+
+
+.logo{
+
+    font-size:25px;
+
+    font-weight:bold;
+}
+
+
+.logo span{
+
+    color:#8b7cff;
+}
+
+
+nav{
+
+    display:flex;
+
+    gap:25px;
+}
+
+
+nav a{
+
+    color:#c8cee4;
+
+    text-decoration:none;
+
+}
+
+
+nav a:hover{
+
+    color:white;
+}
+
+
+.container{
+
+    width:88%;
+
+    max-width:1100px;
+
+    margin:55px auto;
+}
+
+
+.back{
+
+    display:inline-block;
+
+    margin-bottom:25px;
+
+    color:#aaa0ff;
+
+    text-decoration:none;
+
+    font-weight:bold;
+}
+
+
+.event-box{
+
+    background:rgba(255,255,255,.045);
+
+    border:1px solid rgba(255,255,255,.09);
+
+    border-radius:25px;
+
+    padding:35px;
+
+    box-shadow:0 20px 70px rgba(0,0,0,.25);
+}
+
+
+.event-top{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:25px;
+
+    gap:15px;
+
+    flex-wrap:wrap;
+}
+
+
+.platform{
+
+    padding:8px 14px;
+
+    border-radius:10px;
+
+    background:rgba(139,124,255,.13);
+
+    border:1px solid rgba(139,124,255,.22);
+
+    color:#afa5ff;
+
+    font-weight:bold;
+}
+
+
+.status{
+
+    color:#65e6a1;
+
+    font-size:14px;
+
+    font-weight:bold;
+}
+
+
+h1{
+
+    font-size:46px;
+
+    line-height:1.3;
+
+    margin-bottom:15px;
+}
+
+
+.description{
+
+    color:#929bb5;
+
+    font-size:18px;
+
+    margin-bottom:30px;
+}
+
+
+.reward{
+
+    padding:23px;
+
+    border-radius:17px;
+
+    background:rgba(120,104,255,.09);
+
+    border:1px solid rgba(139,124,255,.15);
+
+    margin-bottom:25px;
+}
+
+
+.reward-label{
+
+    color:#7c86a1;
+
+    font-size:13px;
+
+    margin-bottom:4px;
+}
+
+
+.reward-value{
+
+    color:#b8afff;
+
+    font-size:27px;
+
+    font-weight:bold;
+}
+
+
+.info-grid{
+
+    display:grid;
+
+    grid-template-columns:repeat(3,1fr);
+
+    gap:14px;
+
+    margin-bottom:35px;
+}
+
+
+.info{
+
+    padding:18px;
+
+    border-radius:14px;
+
+    background:rgba(255,255,255,.035);
+
+    border:1px solid rgba(255,255,255,.06);
+}
+
+
+.info-label{
+
+    color:#707a95;
+
+    font-size:13px;
+
+    margin-bottom:5px;
+}
+
+
+.info-value{
+
+    color:white;
+
+    font-weight:bold;
+
+    word-break:break-word;
+}
+
+
+.section{
+
+    margin-top:35px;
+}
+
+
+.section h2{
+
+    font-size:23px;
+
+    margin-bottom:17px;
+}
+
+
+.steps{
+
+    display:grid;
+
+    gap:12px;
+}
+
+
+.step{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:13px;
+
+    padding:15px;
+
+    border-radius:12px;
+
+    background:rgba(255,255,255,.035);
+
+    color:#cbd1e3;
+}
+
+
+.number{
+
+    min-width:32px;
+
+    height:32px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    border-radius:50%;
+
+    background:#7868ff;
+
+    font-weight:bold;
+}
+
+
+.profit-box{
+
+    padding:20px;
+
+    border-radius:14px;
+
+    background:rgba(101,230,161,.05);
+
+    border:1px solid rgba(101,230,161,.12);
+
+    color:#b8c6c0;
+}
+
+
+.conditions{
+
+    padding:20px;
+
+    border-radius:14px;
+
+    background:rgba(255,193,7,.04);
+
+    border:1px solid rgba(255,193,7,.10);
+
+    color:#aeb5c8;
+}
+
+
+.actions{
+
+    margin-top:40px;
+
+    display:grid;
+
+    gap:12px;
+}
+
+
+.action{
+
+    display:block;
+
+    text-align:center;
+
+    padding:15px;
+
+    border-radius:12px;
+
+    text-decoration:none;
+
+    font-weight:bold;
+
+    transition:.3s;
+
+    border:none;
+
+    cursor:pointer;
+
+    font-size:16px;
+}
+
+
+.action:hover{
+
+    transform:translateY(-2px);
+}
+
+
+.register{
+
+    background:linear-gradient(135deg,#20b486,#168b69);
+
+    color:white;
+}
+
+
+.campaign{
+
+    background:linear-gradient(135deg,#7868ff,#6354e8);
+
+    color:white;
+}
+
+
+.share{
+
+    background:rgba(255,255,255,.06);
+
+    border:1px solid rgba(255,255,255,.09);
+
+    color:#d9dcec;
+}
+
+
+.notice{
+
+    margin-top:15px;
+
+    text-align:center;
+
+    color:#68728d;
+
+    font-size:12px;
+}
+
+
+.error{
+
+    text-align:center;
+
+    padding:60px 20px;
+}
+
+
+.error h1{
+
+    font-size:34px;
+
+    margin-bottom:15px;
+}
+
+
+.error p{
+
+    color:#929bb5;
+
+    margin-bottom:25px;
+}
+
+
+.error a{
+
+    display:inline-block;
+
+    padding:12px 20px;
+
+    border-radius:10px;
+
+    background:#7868ff;
+
+    color:white;
+
+    text-decoration:none;
+}
+
+
+/* SHARE MODAL */
+
+.modal{
+
+    position:fixed;
+
+    inset:0;
+
+    background:rgba(0,0,0,.72);
+
+    display:none;
+
+    align-items:center;
+
+    justify-content:center;
+
+    z-index:1000;
+
+    padding:20px;
+}
+
+
+.modal.show{
+
+    display:flex;
+}
+
+
+.modal-box{
+
+    width:100%;
+
+    max-width:520px;
+
+    background:#10162a;
+
+    border:1px solid rgba(255,255,255,.1);
+
+    border-radius:22px;
+
+    padding:25px;
+
+    box-shadow:0 25px 90px rgba(0,0,0,.5);
+}
+
+
+.modal-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:22px;
+}
+
+
+.modal-header h2{
+
+    font-size:22px;
+}
+
+
+.close{
+
+    width:36px;
+
+    height:36px;
+
+    border:none;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.07);
+
+    color:white;
+
+    font-size:20px;
+
+    cursor:pointer;
+}
+
+
+.share-grid{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+    gap:12px;
+}
+
+
+.share-item{
+
+    padding:15px;
+
+    border-radius:12px;
+
+    text-decoration:none;
+
+    text-align:center;
+
+    color:white;
+
+    font-weight:bold;
+
+    background:rgba(255,255,255,.06);
+
+    border:1px solid rgba(255,255,255,.08);
+
+    cursor:pointer;
+
+    transition:.25s;
+
+    font-size:15px;
+}
+
+
+.share-item:hover{
+
+    transform:translateY(-3px);
+
+    background:rgba(255,255,255,.1);
+}
+
+
+.copy-message{
+
+    margin-top:15px;
+
+    text-align:center;
+
+    color:#65e6a1;
+
+    min-height:22px;
+
+    font-size:14px;
+}
+
+
+footer{
+
+    margin-top:80px;
+
+    padding:35px 20px;
+
+    text-align:center;
+
+    color:#727b96;
+
+    border-top:1px solid rgba(255,255,255,.07);
+
+    background:rgba(255,255,255,.02);
+}
+
+
+@media(max-width:750px){
+
+    header{
+
+        flex-direction:column;
+
+        gap:15px;
+    }
+
+
+    nav{
+
+        gap:18px;
+    }
+
+
+    .container{
+
+        width:92%;
+
+        margin-top:35px;
+    }
+
+
+    .event-box{
+
+        padding:22px;
+    }
+
+
+    h1{
+
+        font-size:34px;
+    }
+
+
+    .info-grid{
+
+        grid-template-columns:1fr;
+    }
+
+
+    .share-grid{
+
+        grid-template-columns:1fr 1fr;
+    }
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<header>
+
+    <div class="logo">
+
+        🍎 <span>Crypto</span> Events
+
+    </div>
+
+
+    <nav>
+
+        <a href="index.html">
+            الرئيسية
+        </a>
+
+        <a href="events.html">
+            الأحداث
+        </a>
+
+    </nav>
+
+</header>
+
+
+
+<main class="container">
+
+    <a
+        href="events.html"
+        class="back"
+    >
+
+        ← العودة إلى الأحداث
+
+    </a>
+
+
+    <div id="eventContainer"></div>
+
+</main>
+
+
+
+<footer>
+
+    © 2026 Crypto Events
+
+    <br><br>
+
+    جميع الحقوق محفوظة
+
+</footer>
+
+
+
+<!-- SHARE MODAL -->
+
+<div
+    class="modal"
+    id="shareModal"
+>
+
+    <div class="modal-box">
+
+
+        <div class="modal-header">
+
+            <h2>
+                📢 مشاركة مع الأصدقاء
+            </h2>
+
+
+            <button
+                class="close"
+                onclick="closeShare()"
+            >
+
+                ×
+
+            </button>
+
+        </div>
+
+
+        <div class="share-grid">
+
+
+            <a
+                id="whatsappShare"
+                class="share-item"
+                target="_blank"
+            >
+
+                📱 WhatsApp
+
+            </a>
+
+
+            <a
+                id="telegramShare"
+                class="share-item"
+                target="_blank"
+            >
+
+                ✈️ Telegram
+
+            </a>
+
+
+            <a
+                id="xShare"
+                class="share-item"
+                target="_blank"
+            >
+
+                𝕏 X
+
+            </a>
+
+
+            <a
+                id="facebookShare"
+                class="share-item"
+                target="_blank"
+            >
+
+                📘 Facebook
+
+            </a>
+
+
+            <a
+                id="messengerShare"
+                class="share-item"
+                target="_blank"
+            >
+
+                💬 Messenger
+
+            </a>
+
+
+            <a
+                id="redditShare"
+                class="share-item"
+                target="_blank"
+            >
+
+                🔴 Reddit
+
+            </a>
+
+
+            <a
+                id="emailShare"
+                class="share-item"
+            >
+
+                📧 Email
+
+            </a>
+
+
+            <button
+                class="share-item"
+                onclick="copyEventLink()"
+            >
+
+                🔗 نسخ الرابط
+
+            </button>
+
+
+        </div>
+
+
+        <div
+            id="copyMessage"
+            class="copy-message"
+        ></div>
+
+
+    </div>
+
+</div>
+
+
+
+<script src="events.js"></script>
+
+
+<script>
+
+const params =
+    new URLSearchParams(
+        window.location.search
+    );
+
+
+const eventId =
+    params.get("id");
+
+
+const container =
+    document.getElementById(
+        "eventContainer"
+    );
+
+
+const event =
+    events.find(
+        item => item.id === eventId
+    );
+
+
+if (!event) {
+
+    container.innerHTML = `
+
+        <div class="event-box error">
+
+            <h1>
+                🔍 الحدث غير موجود
+            </h1>
+
+            <p>
+                لم نتمكن من العثور على الحدث المطلوب.
+            </p>
+
+            <a href="events.html">
+                العودة إلى الأحداث
+            </a>
+
+        </div>
+
+    `;
+
+} else {
+
+
+    document.title =
+        event.title +
+        " | Crypto Events";
+
+
+    const startDate =
+        event.startDate ||
+        "لم يحدد بعد";
+
+
+    const endDate =
+        event.endDate ||
+        "لم يحدد بعد";
+
+
+    const distributionDate =
+        event.distributionDate ||
+        "حسب شروط الحملة";
+
+
+    let campaignButton;
+
+
+    if (event.campaignUrl) {
+
+        campaignButton = `
+
+            <a
+                href="${event.campaignUrl}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="action campaign"
+            >
+
+                🚀 الدخول إلى الفعالية
+
+            </a>
+
+        `;
+
+    } else {
+
+        campaignButton = `
+
+            <div
+                class="action campaign"
+                style="opacity:.5;cursor:not-allowed;"
+            >
+
+                🚀 رابط الفعالية سيتم إضافته
+
+            </div>
+
+        `;
+
+    }
+
+
+    container.innerHTML = `
+
+        <article class="event-box">
+
+
+            <div class="event-top">
+
+                <span class="platform">
+
+                    🟣 ${event.platform}
+
+                </span>
+
+
+                <span class="status">
+
+                    ● ${event.status}
+
+                </span>
+
+            </div>
+
+
+
+            <h1>
+
+                ${event.title}
+
+            </h1>
+
+
+
+            <p class="description">
+
+                ${event.description}
+
+            </p>
+
+
+
+            <div class="reward">
+
+                <div class="reward-label">
+
+                    💰 إجمالي المكافأة
+
+                </div>
+
+
+                <div class="reward-value">
+
+                    ${event.reward}
+
+                </div>
+
+            </div>
+
+
+
+            <div class="info-grid">
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        🏦 المنصة
+                    </div>
+
+                    <div class="info-value">
+                        ${event.platform}
+                    </div>
+
+                </div>
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        📊 نوع التداول
+                    </div>
+
+                    <div class="info-value">
+                        ${event.trading}
+                    </div>
+
+                </div>
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        💵 حجم التداول
+                    </div>
+
+                    <div class="info-value">
+                        ${event.volume}
+                    </div>
+
+                </div>
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        📅 بداية الفعالية
+                    </div>
+
+                    <div class="info-value">
+                        ${startDate}
+                    </div>
+
+                </div>
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        ⏰ انتهاء الفعالية
+                    </div>
+
+                    <div class="info-value">
+                        ${endDate}
+                    </div>
+
+                </div>
+
+
+                <div class="info">
+
+                    <div class="info-label">
+                        🎁 موعد التوزيع
+                    </div>
+
+                    <div class="info-value">
+                        ${distributionDate}
+                    </div>
+
+                </div>
+
+
+            </div>
+
+
+
+            <section class="section">
+
+                <h2>
+                    📋 طريقة المشاركة
+                </h2>
+
+
+                <div class="steps">
+
+                    ${
+                        event.steps.map(
+                            (step,index) => `
+
+                                <div class="step">
+
+                                    <span class="number">
+
+                                        ${index + 1}
+
+                                    </span>
+
+                                    <span>
+
+                                        ${step}
+
+                                    </span>
+
+                                </div>
+
+                            `
+                        ).join("")
+                    }
+
+                </div>
+
+            </section>
+
+
+
+            <section class="section">
+
+                <h2>
+                    💰 طريقة الربح
+                </h2>
+
+
+                <div class="profit-box">
+
+                    ${event.profitMethod}
+
+                </div>
+
+            </section>
+
+
+
+            <section class="section">
+
+                <h2>
+                    ⚠️ الشروط والتنبيه
+                </h2>
+
+
+                <div class="conditions">
+
+                    ${event.conditions}
+
+                </div>
+
+            </section>
+
+
+
+            <div class="actions">
+
+
+                <a
+
+                    href="${event.affiliateUrl}"
+
+                    target="_blank"
+
+                    rel="noopener noreferrer"
+
+                    class="action register"
+
+                >
+
+                    🆕 افتح حساب جديد
+
+                </a>
+
+
+
+                ${campaignButton}
+
+
+
+                <button
+
+                    class="action share"
+
+                    onclick="openShare()"
+
+                >
+
+                    📢 مشاركة مع الأصدقاء
+
+                </button>
+
+
+            </div>
+
+
+
+            <div class="notice">
+
+                تأكد دائمًا من قراءة الشروط الرسمية
+                للفعالية قبل المشاركة أو إيداع أي أموال.
+
+            </div>
+
+
+        </article>
+
+    `;
+
+
+    setupSharing();
+
+}
+
+
+
+/* SHARE SYSTEM */
+
+
+function setupSharing() {
+
+
+    const url =
+        window.location.href;
+
+
+    const title =
+        event.title;
+
+
+    const text =
+        `${title} - ${event.platform} | ${event.reward}`;
+
+
+    document.getElementById(
+        "whatsappShare"
+    ).href =
+        "https://wa.me/?text=" +
+        encodeURIComponent(
+            text + "\n" + url
+        );
+
+
+    document.getElementById(
+        "telegramShare"
+    ).href =
+        "https://t.me/share/url?url=" +
+        encodeURIComponent(url) +
+        "&text=" +
+        encodeURIComponent(text);
+
+
+    document.getElementById(
+        "xShare"
+    ).href =
+        "https://twitter.com/intent/tweet?text=" +
+        encodeURIComponent(text) +
+        "&url=" +
+        encodeURIComponent(url);
+
+
+    document.getElementById(
+        "facebookShare"
+    ).href =
+        "https://www.facebook.com/sharer/sharer.php?u=" +
+        encodeURIComponent(url);
+
+
+    document.getElementById(
+        "messengerShare"
+    ).href =
+        "https://www.facebook.com/dialog/send?link=" +
+        encodeURIComponent(url) +
+        "&app_id=291494419769518";
+
+
+    document.getElementById(
+        "redditShare"
+    ).href =
+        "https://www.reddit.com/submit?url=" +
+        encodeURIComponent(url) +
+        "&title=" +
+        encodeURIComponent(text);
+
+
+    document.getElementById(
+        "emailShare"
+    ).href =
+        "mailto:?subject=" +
+        encodeURIComponent(title) +
+        "&body=" +
+        encodeURIComponent(
+            text + "\n\n" + url
+        );
+
+}
+
+
+function openShare() {
+
+    document
+        .getElementById("shareModal")
+        .classList.add("show");
+
+}
+
+
+function closeShare() {
+
+    document
+        .getElementById("shareModal")
+        .classList.remove("show");
+
+}
+
+
+function copyEventLink() {
+
+    const url =
+        window.location.href;
+
+
+    navigator.clipboard
+        .writeText(url)
+        .then(() => {
+
+            document
+                .getElementById("copyMessage")
+                .textContent =
+                "✅ تم نسخ رابط الفعالية";
+
+        })
+        .catch(() => {
+
+            document
+                .getElementById("copyMessage")
+                .textContent =
+                "⚠️ انسخ الرابط من شريط المتصفح";
+
+        });
+
+}
+
+
+document
+    .getElementById("shareModal")
+    .addEventListener(
+        "click",
+        function(e){
+
+            if(
+                e.target === this
+            ){
+
+                closeShare();
+
+            }
+
+        }
+    );
+
+</script>
+
+
+</body>
+
+</html>
