@@ -6,11 +6,9 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const TELEGRAM_CHANNEL_USERNAME = "BybitEvents1";
 
-/*
-  =========================================================
-  Helpers
-  =========================================================
-*/
+/* =========================
+   Helpers
+========================= */
 
 function escapeHtml(value = "") {
   return String(value)
@@ -29,7 +27,7 @@ function formatDate(value) {
     return "غير محدد";
   }
 
-  const pad = (number) => String(number).padStart(2, "0");
+  const pad = (n) => String(n).padStart(2, "0");
 
   return `${pad(date.getUTCDate())}/${pad(
     date.getUTCMonth() + 1
@@ -59,7 +57,7 @@ function getDescription(event) {
   return (
     event.description_ar ||
     event.description_en ||
-    "راجع التفاصيل الرسمية للحدث."
+    "راجع تفاصيل وشروط الحدث الرسمية."
   );
 }
 
@@ -83,10 +81,9 @@ function getEligibility(event) {
   return "جميع المستخدمين المؤهلين";
 }
 
-/*
-  يقرأ كل شروط الحدث المتوفرة في قاعدة البيانات.
-  لو رقم معين غير موجود، لا نخترع قيمة.
-*/
+/* =========================
+   Requirements
+========================= */
 
 function buildRequirements(event) {
   const lines = [];
@@ -94,10 +91,6 @@ function buildRequirements(event) {
   if (event.registration_required !== false) {
     lines.push("• التسجيل في الحدث");
   }
-
-  lines.push(
-    `• المؤهلون: ${escapeHtml(getEligibility(event))}`
-  );
 
   if (event.kyc_required === true) {
     lines.push("• KYC مطلوب");
@@ -127,7 +120,9 @@ function buildRequirements(event) {
 
   if (event.trade_type) {
     lines.push(
-      `• نوع التداول: ${escapeHtml(event.trade_type)}`
+      `• نوع التداول: ${escapeHtml(
+        event.trade_type
+      )}`
     );
   }
 
@@ -142,25 +137,17 @@ function buildRequirements(event) {
     );
   }
 
-  if (event.region_restrictions) {
-    lines.push(
-      `• ملاحظة الأهلية: ${escapeHtml(
-        event.region_restrictions
-      )}`
-    );
-  }
-
   /*
-    لو أضفنا لاحقًا task_rewards داخل قاعدة البيانات،
-    سيظهر ربح كل مهمة تلقائيًا.
+    إذا أضفنا task_rewards مستقبلًا في قاعدة البيانات،
+    سيظهر ربح كل مهمة هنا تلقائيًا.
   */
   if (Array.isArray(event.task_rewards)) {
-    event.task_rewards.forEach((task) => {
-      if (!task) return;
+    for (const task of event.task_rewards) {
+      if (!task) continue;
 
       if (typeof task === "string") {
         lines.push(`• ${escapeHtml(task)}`);
-        return;
+        continue;
       }
 
       const taskName =
@@ -184,7 +171,7 @@ function buildRequirements(event) {
           `• ${escapeHtml(taskName)}`
         );
       }
-    });
+    }
   }
 
   if (lines.length === 0) {
@@ -194,51 +181,72 @@ function buildRequirements(event) {
   return lines.join("\n");
 }
 
-/*
-  =========================================================
-  Final Telegram post
-  =========================================================
-*/
+/* =========================
+   Telegram Caption
+========================= */
 
 function buildCaption(event) {
-  const platform = getPlatformName(event);
-  const title = getTitle(event);
-  const reward = getReward(event);
-  const description = getDescription(event);
-
   const lines = [
-    `🏦 المنصة: <b>${escapeHtml(platform)}</b>`,
+    `🏦 المنصة: <b>${escapeHtml(
+      getPlatformName(event)
+    )}</b>`,
+
     "",
-    `🔥 <b>${escapeHtml(title)}</b>`,
+
+    `🔥 <b>${escapeHtml(
+      getTitle(event)
+    )}</b>`,
+
     "",
+
     "🎁 <b>المكافأة</b>",
-    escapeHtml(reward),
+    escapeHtml(getReward(event)),
+
     "",
+
     "📝 <b>تفاصيل الحدث</b>",
-    escapeHtml(description),
+    escapeHtml(getDescription(event)),
+
     "",
+
     "👤 <b>المؤهلون</b>",
-    `• ${escapeHtml(getEligibility(event))}`,
+    `• ${escapeHtml(
+      getEligibility(event)
+    )}`,
+
     "",
+
     "📋 <b>المطلوب</b>",
     buildRequirements(event),
+
     "",
+
     "💰 <b>رابط التسجيل</b>",
     event.affiliate_url
       ? `<a href="${escapeHtml(
           event.affiliate_url
         )}">🚀 سجّل الآن من رابط الإحالة</a>`
       : "غير متوفر حاليًا",
+
     "",
+
     "🎯 <b>رابط الحدث</b>",
     event.official_url
       ? `<a href="${escapeHtml(
           event.official_url
         )}">🔗 افتح الحدث وشارك</a>`
       : "غير متوفر حاليًا",
+
     "",
-    `📅 يبدأ: ${formatDate(event.start_at)}`,
-    `⏰ ينتهي: ${formatDate(event.end_at)}`,
+
+    `📅 يبدأ: ${formatDate(
+      event.start_at
+    )}`,
+
+    `⏰ ينتهي: ${formatDate(
+      event.end_at
+    )}`,
+
     `🎁 التوزيع: ${
       event.distribution_date
         ? formatDate(event.distribution_date)
@@ -272,11 +280,9 @@ function buildCaption(event) {
   return lines.join("\n");
 }
 
-/*
-  =========================================================
-  Supabase
-  =========================================================
-*/
+/* =========================
+   Supabase
+========================= */
 
 async function supabaseRequest(
   path,
@@ -329,11 +335,9 @@ async function supabaseRequest(
   return data;
 }
 
-/*
-  =========================================================
-  Telegram
-  =========================================================
-*/
+/* =========================
+   Telegram
+========================= */
 
 async function telegramRequest(
   method,
@@ -374,63 +378,69 @@ async function telegramRequest(
   return data;
 }
 
-/*
-  =========================================================
-  Check whether this event was already published today
-  =========================================================
-*/
-
-async function wasPublishedToday(eventId) {
-  const today = new Date()
-    .toISOString()
-    .slice(0, 10);
-
-  const rows = await supabaseRequest(
-    `/rest/v1/event_post_logs` +
-      `?select=id` +
-      `&event_id=eq.${encodeURIComponent(eventId)}` +
-      `&publish_date=eq.${today}` +
-      `&post_type=eq.daily_event` +
-      `&limit=1`
-  );
-
-  return Array.isArray(rows) && rows.length > 0;
-}
-
-/*
-  =========================================================
-  Get active events
-  + get real platform name through the relationship
-  =========================================================
-*/
+/* =========================
+   Active Events
+========================= */
 
 async function getActiveEvents() {
-  const now = new Date().toISOString();
+  const now =
+    new Date().toISOString();
 
   const path =
     `/rest/v1/events` +
     `?select=*,platforms(name)` +
     `&status=eq.active` +
-    `&start_at=lte.${encodeURIComponent(now)}` +
-    `&end_at=gte.${encodeURIComponent(now)}` +
+    `&start_at=lte.${encodeURIComponent(
+      now
+    )}` +
+    `&end_at=gte.${encodeURIComponent(
+      now
+    )}` +
     `&order=priority.desc,start_at.asc`;
 
-  const data = await supabaseRequest(path);
+  const data =
+    await supabaseRequest(path);
 
-  return Array.isArray(data) ? data : [];
+  return Array.isArray(data)
+    ? data
+    : [];
 }
 
-/*
-  =========================================================
-  Save Telegram post log
-  =========================================================
-*/
+/* =========================
+   Published Today
+========================= */
+
+async function getPublishedTodayIds() {
+  const today =
+    new Date()
+      .toISOString()
+      .slice(0, 10);
+
+  const rows =
+    await supabaseRequest(
+      `/rest/v1/event_post_logs` +
+        `?select=event_id` +
+        `&publish_date=eq.${today}` +
+        `&post_type=eq.daily_event`
+    );
+
+  return new Set(
+    Array.isArray(rows)
+      ? rows.map((row) =>
+          Number(row.event_id)
+        )
+      : []
+  );
+}
+
+/* =========================
+   Save Post Log
+========================= */
 
 async function savePostLog({
   eventId,
   messageId,
-  messageUrl,
-  postType = "daily_event"
+  messageUrl
 }) {
   await supabaseRequest(
     "/rest/v1/event_post_logs",
@@ -441,29 +451,28 @@ async function savePostLog({
       },
       body: JSON.stringify({
         event_id: Number(eventId),
-        telegram_chat_id: String(
-          TELEGRAM_CHAT_ID
-        ),
-        telegram_message_id: Number(messageId),
+        telegram_chat_id:
+          String(TELEGRAM_CHAT_ID),
+        telegram_message_id:
+          Number(messageId),
         telegram_message_url:
-          messageUrl || null,
-        publish_date: new Date()
-          .toISOString()
-          .slice(0, 10),
+          messageUrl,
+        publish_date:
+          new Date()
+            .toISOString()
+            .slice(0, 10),
         published_at:
           new Date().toISOString(),
-        post_type: postType
+        post_type:
+          "daily_event"
       })
     }
   );
 }
 
-/*
-  =========================================================
-  Main endpoint
-  Publishes ONE event per execution.
-  =========================================================
-*/
+/* =========================
+   Main
+========================= */
 
 export default async function handler(
   req,
@@ -477,7 +486,8 @@ export default async function handler(
   }
 
   try {
-    const events = await getActiveEvents();
+    const events =
+      await getActiveEvents();
 
     if (events.length === 0) {
       return res.status(200).json({
@@ -488,86 +498,84 @@ export default async function handler(
       });
     }
 
-    /*
-      نستبعد ما تم نشره اليوم
-    */
+    const publishedToday =
+      await getPublishedTodayIds();
 
-    const unpublished = [];
+    const available =
+      events.filter(
+        (event) =>
+          !publishedToday.has(
+            Number(event.id)
+          )
+      );
 
-    for (const event of events) {
-      const alreadyPublished =
-        await wasPublishedToday(event.id);
-
-      if (!alreadyPublished) {
-        unpublished.push(event);
-      }
-    }
-
-    /*
-      كل الأحداث اتنشرت اليوم
-    */
-
-    if (unpublished.length === 0) {
+    if (available.length === 0) {
       return res.status(200).json({
         success: true,
         published: 0,
+        eventsAvailable:
+          events.length,
         message:
-          "كل الأحداث النشطة تم نشرها اليوم.",
-        eventsAvailable: events.length
+          "كل الأحداث النشطة تم نشرها اليوم."
       });
     }
 
     /*
-      نأخذ حدثًا واحدًا فقط في كل تشغيل
+      حدث واحد فقط في كل تشغيل.
     */
+    const event = available[0];
 
-    const event = unpublished[0];
-
-    const caption = buildCaption(event);
+    const caption =
+      buildCaption(event);
 
     let telegramResult = null;
+
     let imageSent = false;
 
     /*
-      محاولة إرسال الصورة أولًا
+      إرسال الصورة أولًا
     */
-
     if (event.image_url) {
       try {
         telegramResult =
           await telegramRequest(
             "sendPhoto",
             {
-              chat_id: TELEGRAM_CHAT_ID,
-              photo: event.image_url,
+              chat_id:
+                TELEGRAM_CHAT_ID,
+              photo:
+                event.image_url,
               caption,
-              parse_mode: "HTML"
+              parse_mode:
+                "HTML"
             }
           );
 
         imageSent = true;
       } catch (imageError) {
         console.warn(
-          `Image failed for ${event.id}:`,
+          "Image failed:",
           imageError.message
         );
       }
     }
 
     /*
-      لو الصورة غير موجودة أو فشلت
-      نرسل النص
+      لو الصورة غير موجودة أو فشلت،
+      نرسل النص بدلًا منها.
     */
-
     if (!telegramResult) {
       telegramResult =
         await telegramRequest(
           "sendMessage",
           {
-            chat_id: TELEGRAM_CHAT_ID,
+            chat_id:
+              TELEGRAM_CHAT_ID,
             text: caption,
-            parse_mode: "HTML",
-            disable_web_page_preview: false
+            parse_mode:
+              "HTML",
+            disable_web_page_preview:
+              false
           }
         );
     }
@@ -585,9 +593,8 @@ export default async function handler(
       `https://t.me/${TELEGRAM_CHANNEL_USERNAME}/${messageId}`;
 
     /*
-      تسجيل المنشور في Supabase
+      حفظ رقم ورابط المنشور
     */
-
     await savePostLog({
       eventId: event.id,
       messageId,
@@ -599,12 +606,15 @@ export default async function handler(
       published: 1,
       eventId: event.id,
       title: getTitle(event),
-      platform: getPlatformName(event),
+      platform:
+        getPlatformName(event),
       imageSent,
-      telegramMessageId: messageId,
-      telegramMessageUrl: messageUrl,
+      telegramMessageId:
+        messageId,
+      telegramMessageUrl:
+        messageUrl,
       remainingToday:
-        unpublished.length - 1
+        available.length - 1
     });
 
   } catch (error) {
