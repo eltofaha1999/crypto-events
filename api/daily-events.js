@@ -1,5 +1,5 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY; // تم التعديل لاستخدام Service Role Key
+const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
 
 function escapeHtml(value = "") {
   return String(value)
@@ -110,12 +110,16 @@ function buildRequirements(event) {
     );
   }
 
-  return items.length
-    ? items.map((item) => `• ${escapeHtml(item)}`).join("\n")
-    : "• راجع شروط الحدث الرسمية";
+  if (items.length === 0) {
+    return "• راجع شروط الحدث الرسمية";
+  }
+
+  return items
+    .map((item) => `• ${escapeHtml(item)}`)
+    .join("\n");
 }
 
-function buildCaption(event, index) {
+function buildCaption(event) {
   const lines = [
     `🔥 <b>${escapeHtml(getTitle(event))}</b>`,
     `🏦 <b>المنصة:</b> ${escapeHtml(getPlatformName(event))}`,
@@ -131,16 +135,12 @@ function buildCaption(event, index) {
     "",
     "💰 <b>رابط التسجيل</b>",
     event.affiliate_url
-      ? `<a href="${escapeHtml(
-          event.affiliate_url
-        )}">🚀 سجّل من رابط الإحالة</a>`
+      ? `<a href="${escapeHtml(event.affiliate_url)}">🚀 سجّل من رابط الإحالة</a>`
       : "غير متوفر حاليًا",
     "",
     "🎯 <b>رابط الحدث الرسمي</b>",
     event.official_url
-      ? `<a href="${escapeHtml(
-          event.official_url
-        )}">🔗 افتح الحدث</a>`
+      ? `<a href="${escapeHtml(event.official_url)}">🔗 افتح الحدث</a>`
       : "غير متوفر حاليًا",
     "",
     `📅 <b>يبدأ:</b> ${formatDate(event.start_at)}`,
@@ -195,48 +195,51 @@ function buildCaption(event, index) {
   return lines.join("\n");
 }
 
-async function supabaseGet(path) {
+async function getEventsFromSupabase() {
   if (!SUPABASE_URL) {
     throw new Error("SUPABASE_URL is not configured");
   }
 
   if (!SUPABASE_KEY) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is not configured"
+      "SUPABASE_PUBLISHABLE_KEY is not configured"
     );
   }
 
-  const response = await fetch(
-    `${SUPABASE_URL}${path}`,
-    {
-      method: "GET",
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json"
-      }
+  const now = new Date().toISOString();
+
+  const url =
+    `${SUPABASE_URL}/rest/v1/events` +
+    `?select=*` +
+    `&status=eq.active` +
+    `&start_at=lte.${encodeURIComponent(now)}` +
+    `&end_at=gte.${encodeURIComponent(now)}` +
+    `&order=priority.desc,start_at.asc`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json"
     }
-  );
+  });
 
   const data = await response.json();
 
   if (!response.ok) {
     throw new Error(
       data?.message ||
-        data?.hint ||
-        data?.details ||
-        `Supabase error: ${response.status}`
+      data?.hint ||
+      data?.details ||
+      `Supabase error: ${response.status}`
     );
   }
 
-  return data;
+  return Array.isArray(data) ? data : [];
 }
 
-async function telegramRequest(
-  method,
-  body,
-  token
-) {
+async function sendTelegram(method, body, token) {
   const response = await fetch(
     `https://api.telegram.org/bot${token}/${method}`,
     {
@@ -253,7 +256,7 @@ async function telegramRequest(
   if (!response.ok || !data.ok) {
     throw new Error(
       data?.description ||
-        `Telegram API error: ${response.status}`
+      `Telegram API error: ${response.status}`
     );
   }
 
@@ -269,8 +272,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-    const telegramChatId = process.env.TELEGRAM_CHAT_ID;
+    const telegramToken =
+      process.env.TELEGRAM_BOT_TOKEN;
+
+    const telegramChatId =
+      process.env.TELEGRAM_CHAT_ID;
 
     if (!telegramToken) {
       return res.status(500).json({
@@ -286,34 +292,23 @@ export default async function handler(req, res) {
       });
     }
 
-    const now = new Date().toISOString();
+    const events = await getEventsFromSupabase();
 
-    const query =
-      `/rest/v1/events` +
-      `?select=*` +
-      `&status=eq.active` +
-      `&start_at=lte.${encodeURIComponent(now)}` +
-      `&end_at=gte.${encodeURIComponent(now)}` +
-      `&order=priority.desc,start_at.asc`;
-
-    const events = await supabaseGet(query);
-
-    if (!Array.isArray(events)) {
-      throw new Error(
-        "Supabase returned invalid events data"
-      );
-    }
-
+    /*
+      لو مفيش أحداث نشطة
+    */
     if (events.length === 0) {
       const message = [
-        "📅 <b>Crypto Events — الأحداث المتاحة الآن</b>",
+        "📅 <b>Crypto Events</b>",
         "",
-        "ℹ️ لا توجد أحداث متاحة حاليًا.",
+        "ℹ️ لا توجد أحداث نشطة حاليًا.",
+        "",
+        "🔄 سيتم تحديث قائمة الأحداث تلقائيًا.",
         "",
         "🍎 <b>Crypto Events</b>"
       ].join("\n");
 
-      const result = await telegramRequest(
+      const result = await sendTelegram(
         "sendMessage",
         {
           chat_id: telegramChatId,
@@ -326,26 +321,30 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         eventsCount: 0,
-        messageId: result.result?.message_id || null
+        messageId:
+          result.result?.message_id || null
       });
     }
 
+    /*
+      عنوان الملخص
+    */
     const summary = [
       "🔥 <b>Crypto Events — الأحداث المتاحة الآن</b>",
       "",
-      `📊 <b>${events.length}</b> حدث متاح حاليًا`,
+      `📊 إجمالي الأحداث: <b>${events.length}</b>`,
       "",
       ...events.map(
         (event, index) =>
-          `${index + 1}️⃣ <b>${escapeHtml(
+          `${index + 1}️⃣ ${escapeHtml(
             getPlatformName(event)
-          )}</b> — ${escapeHtml(getTitle(event))}`
+          )} — ${escapeHtml(getTitle(event))}`
       ),
       "",
-      "👇 <b>تفاصيل الأحداث بالأسفل</b>"
+      "👇 <b>تفاصيل الأحداث</b>"
     ];
 
-    await telegramRequest(
+    const summaryResult = await sendTelegram(
       "sendMessage",
       {
         chat_id: telegramChatId,
@@ -355,19 +354,23 @@ export default async function handler(req, res) {
       telegramToken
     );
 
+    /*
+      إرسال كل حدث
+    */
     const results = [];
 
-    for (let index = 0; index < events.length; index++) {
-      const event = events[index];
-
-      const caption = buildCaption(event, index + 1);
+    for (const event of events) {
+      const caption = buildCaption(event);
 
       let result = null;
       let imageSent = false;
 
+      /*
+        لو فيه صورة، نحاول إرسالها
+      */
       if (event.image_url) {
         try {
-          result = await telegramRequest(
+          result = await sendTelegram(
             "sendPhoto",
             {
               chat_id: telegramChatId,
@@ -379,22 +382,24 @@ export default async function handler(req, res) {
           );
 
           imageSent = true;
-        } catch (imageError) {
+        } catch (error) {
           console.warn(
             `Image failed for event ${event.id}:`,
-            imageError.message
+            error.message
           );
         }
       }
 
+      /*
+        لو الصورة فشلت أو مش موجودة
+        نرسل الحدث كنص
+      */
       if (!result) {
-        result = await telegramRequest(
+        result = await sendTelegram(
           "sendMessage",
           {
             chat_id: telegramChatId,
-            text:
-              caption +
-              "\n\n📷 <i>صورة الحدث غير متاحة حاليًا.</i>",
+            text: caption,
             parse_mode: "HTML",
             disable_web_page_preview: false
           },
@@ -404,20 +409,27 @@ export default async function handler(req, res) {
 
       results.push({
         id: event.id,
-        platform: getPlatformName(event),
         title: getTitle(event),
+        platform: getPlatformName(event),
         imageSent,
-        messageId: result.result?.message_id || null
+        messageId:
+          result.result?.message_id || null
       });
     }
 
     return res.status(200).json({
       success: true,
       eventsCount: events.length,
+      summaryMessageId:
+        summaryResult.result?.message_id || null,
       results
     });
+
   } catch (error) {
-    console.error("Daily events error:", error);
+    console.error(
+      "Daily events error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
