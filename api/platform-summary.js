@@ -23,9 +23,7 @@ function escapeHtml(value = "") {
 }
 
 function formatDate(value) {
-  if (!value) {
-    return "غير محدد";
-  }
+  if (!value) return "غير محدد";
 
   const date = new Date(value);
 
@@ -44,7 +42,7 @@ function formatDate(value) {
 }
 
 /* =========================
-   Supabase
+   Supabase Request
 ========================= */
 
 async function supabaseRequest(
@@ -150,7 +148,7 @@ async function telegramRequest(
 }
 
 /* =========================
-   Get today's summary platforms
+   Platforms
 ========================= */
 
 async function getPlatforms() {
@@ -162,7 +160,11 @@ async function getPlatforms() {
   );
 }
 
-async function getTodaySummaryPlatformIds() {
+/* =========================
+   Today's summary logs
+========================= */
+
+async function getTodaySummaryIds() {
   const today =
     new Date()
       .toISOString()
@@ -171,7 +173,7 @@ async function getTodaySummaryPlatformIds() {
   const rows =
     await supabaseRequest(
       "/rest/v1/platform_summary_logs" +
-        `?select=platform_id` +
+        "?select=platform_id" +
         `&publish_date=eq.${today}`
     );
 
@@ -185,7 +187,7 @@ async function getTodaySummaryPlatformIds() {
 }
 
 /* =========================
-   Get active events
+   Active Events
 ========================= */
 
 async function getActiveEvents(
@@ -217,42 +219,38 @@ async function getActiveEvents(
 }
 
 /* =========================
-   Get today's Telegram posts
+   Latest Telegram post
+   for each event
 ========================= */
 
-async function getTodayPostLogs(
+async function getLatestPostLogs(
   eventIds
 ) {
   if (!eventIds.length) {
     return [];
   }
 
-  const today =
-    new Date()
-      .toISOString()
-      .slice(0, 10);
-
-  const filter =
+  const ids =
     eventIds.join(",");
 
   return supabaseRequest(
     "/rest/v1/event_post_logs" +
-      "?select=event_id,telegram_message_id,telegram_message_url,publish_date,post_type" +
-      `&event_id=in.(${filter})` +
-      `&publish_date=eq.${today}` +
+      "?select=event_id,telegram_message_id,telegram_message_url,post_type,published_at" +
+      `&event_id=in.(${ids})` +
       "&post_type=eq.daily_event" +
       "&order=published_at.desc"
   );
 }
 
 /* =========================
-   Build Platform Summary
+   Build Summary
 ========================= */
 
 function buildSummary({
   platform,
   events,
-  postLogMap
+  postLogMap,
+  affiliateUrl
 }) {
   const lines = [];
 
@@ -267,11 +265,11 @@ function buildSummary({
     ""
   );
 
-  if (platform.signup_url) {
+  if (affiliateUrl) {
     lines.push(
       "💰 <b>رابط التسجيل والإحالة</b>",
       `<a href="${escapeHtml(
-        platform.signup_url
+        affiliateUrl
       )}">🚀 سجّل الآن من رابط الإحالة</a>`,
       ""
     );
@@ -294,11 +292,6 @@ function buildSummary({
         event.reward_en ||
         "راجع تفاصيل الحدث";
 
-      const post =
-        postLogMap.get(
-          Number(event.id)
-        );
-
       lines.push(
         `${index + 1}️⃣ <b>${escapeHtml(
           title
@@ -309,13 +302,22 @@ function buildSummary({
         )}`
       );
 
-      if (post?.telegram_message_url) {
+      const latestPost =
+        postLogMap.get(
+          Number(event.id)
+        );
+
+      if (
+        latestPost?.telegram_message_url
+      ) {
         lines.push(
           `<a href="${escapeHtml(
-            post.telegram_message_url
+            latestPost.telegram_message_url
           )}">🔗 افتح منشور الحدث</a>`
         );
-      } else if (event.official_url) {
+      } else if (
+        event.official_url
+      ) {
         lines.push(
           `<a href="${escapeHtml(
             event.official_url
@@ -338,7 +340,7 @@ function buildSummary({
 }
 
 /* =========================
-   Save Summary Log
+   Save Summary
 ========================= */
 
 async function saveSummaryLog({
@@ -365,7 +367,7 @@ async function saveSummaryLog({
           Number(messageId),
 
         telegram_message_url:
-          messageUrl,
+          messageUrl || null,
 
         publish_date:
           new Date()
@@ -400,11 +402,10 @@ export default async function handler(
       await getPlatforms();
 
     const summarizedIds =
-      await getTodaySummaryPlatformIds();
+      await getTodaySummaryIds();
 
     /*
-      نختار أول منصة لم تعمل لها
-      جرد اليوم.
+      منصة واحدة فقط في كل تشغيل.
     */
     const remainingPlatforms =
       platforms.filter(
@@ -425,9 +426,6 @@ export default async function handler(
       });
     }
 
-    /*
-      منصة واحدة فقط في كل تشغيل.
-    */
     const platform =
       remainingPlatforms[0];
 
@@ -437,9 +435,54 @@ export default async function handler(
       );
 
     /*
-      لو المنصة لا يوجد بها أحداث
-      اليوم، نسجل أنها تمت معالجتها
-      بدون إرسال منشور.
+      آخر منشور لكل حدث
+      مهما كان تاريخ نشره.
+    */
+    const eventIds =
+      events.map((event) =>
+        Number(event.id)
+      );
+
+    const postLogs =
+      await getLatestPostLogs(
+        eventIds
+      );
+
+    const postLogMap =
+      new Map();
+
+    for (const log of postLogs) {
+      const eventId =
+        Number(log.event_id);
+
+      if (
+        !postLogMap.has(eventId)
+      ) {
+        postLogMap.set(
+          eventId,
+          log
+        );
+      }
+    }
+
+    /*
+      نأخذ رابط الإحالة من أول حدث
+      في المنصة، ثم signup_url كخيار
+      احتياطي.
+    */
+    const affiliateUrl =
+      events.find(
+        (event) =>
+          event.affiliate_url
+      )?.affiliate_url ||
+      platform.signup_url ||
+      null;
+
+    /*
+      لو المنصة بدون أحداث:
+      لا ننشر بوست فارغ.
+      لكن نسجل أنها تمت معالجتها
+      حتى لا تظل تدور للأبد.
     */
     if (events.length === 0) {
       await saveSummaryLog({
@@ -454,43 +497,18 @@ export default async function handler(
         published: 0,
         platform:
           platform.name,
-        message:
-          "لا توجد أحداث متاحة لهذه المنصة."
+        eventsCount: 0,
+        remainingPlatforms:
+          remainingPlatforms.length - 1
       });
-    }
-
-    const eventIds =
-      events.map((event) =>
-        Number(event.id)
-      );
-
-    const logs =
-      await getTodayPostLogs(
-        eventIds
-      );
-
-    const postLogMap =
-      new Map();
-
-    for (const log of logs) {
-      const eventId =
-        Number(log.event_id);
-
-      if (
-        !postLogMap.has(eventId)
-      ) {
-        postLogMap.set(
-          eventId,
-          log
-        );
-      }
     }
 
     const text =
       buildSummary({
         platform,
         events,
-        postLogMap
+        postLogMap,
+        affiliateUrl
       });
 
     const telegramResult =
@@ -544,7 +562,6 @@ export default async function handler(
       remainingPlatforms:
         remainingPlatforms.length - 1
     });
-
   } catch (error) {
     console.error(
       "Platform summary error:",
