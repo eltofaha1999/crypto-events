@@ -1,8 +1,17 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
 
+const BYBIT_SOURCE =
+  "https://announcements.bybit.com/en/?category=latest_activities&page=1";
+
+const AFFILIATE_URL =
+  "https://partner.bybit.com/b/165247";
+
+const AFFILIATE_CODE =
+  "165247";
+
+const MAX_CANDIDATES = 3;
 const TIMEOUT_MS = 8000;
-const MAX_LINKS = 20;
 
 function cleanText(value = "") {
   return String(value)
@@ -10,58 +19,31 @@ function cleanText(value = "") {
     .trim();
 }
 
-function makeSlug(platform, title) {
-  return `${platform}-${title}`
+function decodeHtml(value = "") {
+  return String(value)
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+function stripHtml(value = "") {
+  return decodeHtml(
+    String(value)
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+  );
+}
+
+function slugify(title) {
+  return `bybit-${title}`
     .toLowerCase()
     .replace(/[^a-z0-9\u0600-\u06ff]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 180);
-}
-
-async function supabaseRequest(path, options = {}) {
-  if (!SUPABASE_URL) {
-    throw new Error("SUPABASE_URL is not configured");
-  }
-
-  if (!SUPABASE_KEY) {
-    throw new Error(
-      "SUPABASE_PUBLISHABLE_KEY is not configured"
-    );
-  }
-
-  const response = await fetch(
-    `${SUPABASE_URL}${path}`,
-    {
-      ...options,
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      }
-    }
-  );
-
-  const text = await response.text();
-
-  let data = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message ||
-      data?.hint ||
-      data?.details ||
-      `Supabase HTTP ${response.status}`
-    );
-  }
-
-  return data;
 }
 
 async function fetchPage(url) {
@@ -77,7 +59,7 @@ async function fetchPage(url) {
       signal: controller.signal,
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; CryptoEventsSync/1.0)",
+          "Mozilla/5.0 (compatible; CryptoEventsBybitSync/1.0)",
         Accept:
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
       }
@@ -94,8 +76,8 @@ async function fetchPage(url) {
   }
 }
 
-function extractLinks(html, baseUrl) {
-  const links = [];
+function extractAnnouncementLinks(html) {
+  const results = [];
 
   const regex =
     /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
@@ -115,55 +97,86 @@ function extractLinks(html, baseUrl) {
     }
 
     try {
-      href = new URL(href, baseUrl).toString();
+      href = new URL(
+        href,
+        BYBIT_SOURCE
+      ).toString();
     } catch {
       continue;
     }
 
+    if (
+      !href.includes(
+        "announcements.bybit.com/en/article/"
+      )
+    ) {
+      continue;
+    }
+
     const title = cleanText(
-      match[2].replace(/<[^>]+>/g, " ")
+      stripHtml(match[2])
     );
 
     if (title.length < 8) {
       continue;
     }
 
-    links.push({
+    results.push({
       title,
       url: href
     });
   }
 
-  return links;
+  const unique = new Map();
+
+  for (const item of results) {
+    unique.set(item.url, item);
+  }
+
+  return [...unique.values()];
 }
 
-function isEventCandidate(title = "") {
-  const text = title.toLowerCase();
+function looksLikeCampaign(title = "") {
+  const value = title.toLowerCase();
 
-  const keywords = [
-    "campaign",
-    "event",
+  const positive = [
+    "earn",
     "reward",
     "rewards",
-    "bonus",
-    "competition",
+    "prize",
+    "campaign",
     "challenge",
-    "airdrop",
-    "giveaway",
-    "trading",
-    "trade",
+    "competition",
+    "win",
+    "share",
     "usdt",
     "usdc",
-    "mystery box",
     "مكاف",
     "حملة",
-    "حدث",
     "تحدي",
     "مسابقة"
   ];
 
-  return keywords.some((keyword) =>
-    text.includes(keyword)
+  const negative = [
+    "listing",
+    "maintenance",
+    "suspend",
+    "delist",
+    "margin trading position tier",
+    "fee update",
+    "service discontinuation"
+  ];
+
+  if (
+    negative.some((word) =>
+      value.includes(word)
+    )
+  ) {
+    return false;
+  }
+
+  return positive.some((word) =>
+    value.includes(word)
   );
 }
 
@@ -180,10 +193,6 @@ function getMeta(html, property) {
     new RegExp(
       `<meta[^>]+name=["']${property}["'][^>]+content=["']([^"']+)["']`,
       "i"
-    ),
-    new RegExp(
-      `<meta[^>]+content=["']([^"']+)["'][^>]+name=["']${property}["']`,
-      "i"
     )
   ];
 
@@ -192,9 +201,7 @@ function getMeta(html, property) {
 
     if (match?.[1]) {
       return cleanText(
-        match[1]
-          .replace(/&amp;/gi, "&")
-          .replace(/&quot;/gi, '"')
+        decodeHtml(match[1])
       );
     }
   }
@@ -206,11 +213,11 @@ function getTitle(html) {
   return (
     getMeta(html, "og:title") ||
     cleanText(
-      html
-        .match(
+      stripHtml(
+        html.match(
           /<title[^>]*>([\s\S]*?)<\/title>/i
-        )?.[1]
-        ?.replace(/<[^>]+>/g, " ") || ""
+        )?.[1] || ""
+      )
     ) ||
     null
   );
@@ -245,19 +252,7 @@ function getImage(html, pageUrl) {
 
 function getVisibleText(html) {
   return cleanText(
-    html
-      .replace(
-        /<script[\s\S]*?<\/script>/gi,
-        " "
-      )
-      .replace(
-        /<style[\s\S]*?<\/style>/gi,
-        " "
-      )
-      .replace(
-        /<[^>]+>/g,
-        " "
-      )
+    stripHtml(html)
   );
 }
 
@@ -281,15 +276,17 @@ function extractReward(text) {
 
 function extractDates(text) {
   const patterns = [
-    /([A-Z][a-z]+\s+\d{1,2},?\s+\d{4}(?:[^a-zA-Z0-9]{1,10}\d{1,2}:\d{2}\s*(?:AM|PM)?)?)\s*(?:-|–|—|to|until|through)\s*([A-Z][a-z]+\s+\d{1,2},?\s+\d{4}(?:[^a-zA-Z0-9]{1,10}\d{1,2}:\d{2}\s*(?:AM|PM)?)?)/i,
+    /Event period:\s*([A-Z][a-z]+\s+\d{1,2},\s*\d{4}[^–—-]{0,80})\s*[–—-]\s*([A-Z][a-z]+\s+\d{1,2},\s*\d{4}[^.]*)/i,
 
-    /(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2})?)\s*(?:-|–|—|to|until)\s*(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2})?)/i
+    /(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2})?)\s*(?:-|–|—|to)\s*(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2})?)/i
   ];
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
 
-    if (!match) continue;
+    if (!match) {
+      continue;
+    }
 
     const start = new Date(match[1]);
     const end = new Date(match[2]);
@@ -310,65 +307,68 @@ function extractDates(text) {
 }
 
 function extractVolume(text) {
-  const patterns = [
-    /(?:trading volume|trade volume|volume|حجم التداول)[^0-9]{0,60}([\d,.]+)\s*(?:USDT|USDC|USD)/i
-  ];
+  const match = text.match(
+    /(?:minimum trading volume|trading volume|trade volume)[^0-9]{0,60}([\d,.]+)\s*(?:USDT|USDC|USD)/i
+  );
 
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-
-    if (!match) continue;
-
-    const value = Number(
-      match[1].replace(/,/g, "")
-    );
-
-    if (Number.isFinite(value)) {
-      return value;
-    }
+  if (!match) {
+    return null;
   }
 
-  return null;
+  const value = Number(
+    match[1].replace(/,/g, "")
+  );
+
+  return Number.isFinite(value)
+    ? value
+    : null;
 }
 
 function extractDeposit(text) {
-  const patterns = [
-    /(?:minimum deposit|deposit at least|deposit|الإيداع|إيداع)[^0-9]{0,60}([\d,.]+)\s*(?:USDT|USDC|USD)/i
-  ];
+  const match = text.match(
+    /(?:minimum deposit|deposit at least|deposit)[^0-9]{0,60}([\d,.]+)\s*(?:USDT|USDC|USD)/i
+  );
 
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-
-    if (!match) continue;
-
-    const value = Number(
-      match[1].replace(/,/g, "")
-    );
-
-    if (Number.isFinite(value)) {
-      return value;
-    }
+  if (!match) {
+    return null;
   }
 
-  return null;
+  const value = Number(
+    match[1].replace(/,/g, "")
+  );
+
+  return Number.isFinite(value)
+    ? value
+    : null;
 }
 
 function detectTradeType(text) {
   const value = text.toLowerCase();
 
-  if (value.includes("copy trading")) {
+  if (
+    value.includes("copy trading")
+  ) {
     return "Copy Trading";
   }
 
   if (
+    value.includes("derivatives") ||
     value.includes("futures") ||
     value.includes("perpetual")
   ) {
-    return "Futures";
+    return "Derivatives";
   }
 
-  if (value.includes("spot")) {
+  if (
+    value.includes("spot")
+  ) {
     return "Spot";
+  }
+
+  if (
+    value.includes("tradfi")
+  ) {
+    return "TradFi";
   }
 
   return null;
@@ -378,6 +378,7 @@ function detectEligibility(text) {
   const value = text.toLowerCase();
 
   if (
+    value.includes("new to bybit") ||
     value.includes("new users only") ||
     value.includes("new users")
   ) {
@@ -394,21 +395,27 @@ function detectEligibility(text) {
 }
 
 function extractTaskRewards(text) {
-  const lines = text.split(/[.!?\n]+/);
+  const lines =
+    text.split(/[.!?\n]+/);
+
   const tasks = [];
 
   for (const line of lines) {
     const value = cleanText(line);
 
-    if (!value) continue;
+    if (!value) {
+      continue;
+    }
 
     if (
-      /(earn|reward|bonus|receive|get|ربح|مكافأة)/i.test(
+      /(earn|get|receive|reward|bonus|win|ربح|مكافأة)/i.test(
         value
       ) &&
       /\d/.test(value)
     ) {
-      tasks.push(value.slice(0, 300));
+      tasks.push(
+        value.slice(0, 300)
+      );
     }
   }
 
@@ -417,146 +424,72 @@ function extractTaskRewards(text) {
   ].slice(0, 20);
 }
 
-function getAffiliate(platformName) {
-  const key = String(platformName)
-    .trim()
-    .toLowerCase();
-
-  const affiliates = {
-    bybit: [
-      "https://partner.bybit.com/b/165247",
-      "165247"
-    ],
-
-    binance: [
-      "https://www.binance.com/ar/activity/referral-entry/CPA?ref=CPA_00971H3C6O",
-      "CPA_00971H3C6O"
-    ],
-
-    bitget: [
-      "https://partner.bitget.com/bg/HUPJG5",
-      "HUPJG5"
-    ],
-
-    okx: [
-      "https://okx.com/join/42167890",
-      "42167890"
-    ],
-
-    "gate.io": [
-      "https://www.gate.com/share/awcxxqhx",
-      "awcxxqhx"
-    ],
-
-    mexc: [
-      "https://www.mexc.com/register?inviteCode=1Z93d",
-      "1Z93d"
-    ],
-
-    weex: [
-      "https://weex.com/register?vipCode=kqjq",
-      "kqjq"
-    ],
-
-    lbank: [
-      "https://www.lbank.com/ref/59YQY",
-      "59YQY"
-    ],
-
-    blofin: [
-      "https://partner.blofin.com/d/Elkateba",
-      "Elkateba"
-    ],
-
-    "bitunix pro": [
-      "https://www.bitunix.com/register?vipCode=uGre",
-      "uGre"
-    ]
-  };
-
-  const result = affiliates[key];
-
-  return {
-    url: result?.[0] || null,
-    code: result?.[1] || null
-  };
-}
-
-async function getPlatforms() {
-  return supabaseRequest(
-    "/rest/v1/platforms" +
-      "?select=id,name,events_source_url,is_active" +
-      "&is_active=eq.true" +
-      "&order=id"
-  );
-}
-
-async function getExistingEvents(
-  platformId
+async function supabaseRequest(
+  path,
+  options = {}
 ) {
-  return supabaseRequest(
-    "/rest/v1/events" +
-      "?select=id,slug,official_url" +
-      `&platform_id=eq.${encodeURIComponent(
-        platformId
-      )}`
-  );
-}
-
-async function updateSync({
-  platformId,
-  status,
-  candidates,
-  newEvents,
-  error
-}) {
-  const now =
-    new Date().toISOString();
-
-  const payload = {
-    platform_id:
-      Number(platformId),
-
-    last_checked_at:
-      now,
-
-    status,
-
-    candidates_found:
-      Number(candidates || 0),
-
-    new_events_found:
-      Number(newEvents || 0),
-
-    last_error:
-      error || null,
-
-    updated_at:
-      now
-  };
-
-  if (status === "success") {
-    payload.last_success_at =
-      now;
+  if (!SUPABASE_URL) {
+    throw new Error(
+      "SUPABASE_URL is not configured"
+    );
   }
 
-  await supabaseRequest(
-    "/rest/v1/event_source_sync?on_conflict=platform_id",
+  if (!SUPABASE_KEY) {
+    throw new Error(
+      "SUPABASE_PUBLISHABLE_KEY is not configured"
+    );
+  }
+
+  const response = await fetch(
+    `${SUPABASE_URL}${path}`,
     {
-      method: "POST",
+      ...options,
       headers: {
-        Prefer:
-          "resolution=merge-duplicates,return=minimal"
-      },
-      body:
-        JSON.stringify(payload)
+        apikey: SUPABASE_KEY,
+        Authorization:
+          `Bearer ${SUPABASE_KEY}`,
+        "Content-Type":
+          "application/json",
+        ...(options.headers || {})
+      }
     }
   );
+
+  const text =
+    await response.text();
+
+  let data = null;
+
+  try {
+    data = text
+      ? JSON.parse(text)
+      : null;
+  } catch {
+    data = text;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+      data?.hint ||
+      data?.details ||
+      `Supabase HTTP ${response.status}`
+    );
+  }
+
+  return data;
 }
 
-async function createEvent(
-  event
-) {
+async function getExistingEvents() {
+  const rows =
+    await supabaseRequest(
+      "/rest/v1/events?select=id,slug,official_url&platform_id=eq.1"
+    );
+
+  return rows || [];
+}
+
+async function saveNewEvent(event) {
   return supabaseRequest(
     "/rest/v1/events",
     {
@@ -571,14 +504,12 @@ async function createEvent(
   );
 }
 
-async function updateEvent(
+async function updateExistingEvent(
   id,
   event
 ) {
   return supabaseRequest(
-    `/rest/v1/events?id=eq.${encodeURIComponent(
-      id
-    )}`,
+    `/rest/v1/events?id=eq.${encodeURIComponent(id)}`,
     {
       method: "PATCH",
       headers: {
@@ -591,6 +522,133 @@ async function updateEvent(
   );
 }
 
+function buildEvent({
+  title,
+  description,
+  reward,
+  imageUrl,
+  dates,
+  volumeRequired,
+  depositRequired,
+  tradeType,
+  eligibility,
+  taskRewards,
+  officialUrl
+}) {
+  const now =
+    new Date();
+
+  let status =
+    "active";
+
+  if (now < dates.start) {
+    status = "upcoming";
+  }
+
+  if (now > dates.end) {
+    status = "ended";
+  }
+
+  return {
+    slug:
+      slugify(title),
+
+    platform_id:
+      1,
+
+    title_ar:
+      title,
+
+    title_en:
+      title,
+
+    description_ar:
+      description ||
+      "تم التحقق من الحدث من المصدر الرسمي.",
+
+    description_en:
+      description ||
+      "Event verified from the official source.",
+
+    reward_ar:
+      reward,
+
+    reward_en:
+      reward,
+
+    event_type:
+      tradeType ||
+      "campaign",
+
+    status,
+
+    start_at:
+      dates.start.toISOString(),
+
+    end_at:
+      dates.end.toISOString(),
+
+    official_url:
+      officialUrl,
+
+    volume_required:
+      volumeRequired,
+
+    deposit_required:
+      depositRequired,
+
+    trade_type:
+      tradeType,
+
+    min_trade:
+      null,
+
+    new_users_only:
+      eligibility.newUsersOnly,
+
+    existing_users_allowed:
+      eligibility.existingUsersAllowed,
+
+    kyc_required:
+      /\bkyc\b/i.test(
+        `${description} ${reward}`
+      ),
+
+    region_restrictions:
+      null,
+
+    registration_required:
+      true,
+
+    distribution_date:
+      null,
+
+    distribution_method:
+      null,
+
+    affiliate_url:
+      AFFILIATE_URL,
+
+    affiliate_code:
+      AFFILIATE_CODE,
+
+    image_url:
+      imageUrl,
+
+    source_url:
+      officialUrl,
+
+    last_verified_at:
+      new Date().toISOString(),
+
+    priority:
+      80,
+
+    task_rewards:
+      taskRewards
+  };
+}
+
 export default async function handler(
   req,
   res
@@ -598,150 +656,77 @@ export default async function handler(
   if (req.method !== "GET") {
     return res.status(405).json({
       success: false,
-      error: "Method not allowed"
+      error:
+        "Method not allowed"
     });
   }
 
   try {
-    const platforms =
-      await getPlatforms();
-
-    if (!platforms.length) {
-      return res.status(200).json({
-        success: true,
-        message:
-          "No active platforms found.",
-        processed: null
-      });
-    }
-
-    /*
-      اختيار المنصة:
-      ?platform_id=1
-      أو أول منصة نشطة.
-    */
-
-    const requestedId =
-      req.query?.platform_id
-        ? Number(
-            req.query.platform_id
-          )
-        : null;
-
-    const platform =
-      requestedId
-        ? platforms.find(
-            (item) =>
-              Number(item.id) ===
-              requestedId
-          )
-        : platforms[0];
-
-    if (!platform) {
-      return res.status(404).json({
-        success: false,
-        error:
-          "Platform not found"
-      });
-    }
-
-    if (!platform.events_source_url) {
-      return res.status(200).json({
-        success: true,
-        platform:
-          platform.name,
-        skipped: true,
-        reason:
-          "events_source_url is empty"
-      });
-    }
-
-    const existing =
-      await getExistingEvents(
-        platform.id
+    const source =
+      await fetchPage(
+        BYBIT_SOURCE
       );
 
-    const existingBySlug =
+    if (!source.ok) {
+      return res.status(502).json({
+        success: false,
+        error:
+          `Bybit HTTP ${source.status}`
+      });
+    }
+
+    const links =
+      extractAnnouncementLinks(
+        source.html
+      )
+      .filter((item) =>
+        looksLikeCampaign(
+          item.title
+        )
+      )
+      .slice(
+        0,
+        MAX_CANDIDATES
+      );
+
+    const existing =
+      await getExistingEvents();
+
+    const bySlug =
       new Map();
 
-    const existingByUrl =
+    const byUrl =
       new Map();
 
     for (const row of existing) {
       if (row.slug) {
-        existingBySlug.set(
+        bySlug.set(
           row.slug,
           row
         );
       }
 
       if (row.official_url) {
-        existingByUrl.set(
+        byUrl.set(
           row.official_url,
           row
         );
       }
     }
 
-    const listing =
-      await fetchPage(
-        platform.events_source_url
-      );
+    const report = {
+      success: true,
+      source:
+        BYBIT_SOURCE,
+      candidates:
+        links.length,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      details: []
+    };
 
-    if (!listing.ok) {
-      await updateSync({
-        platformId:
-          platform.id,
-        status: "error",
-        candidates: 0,
-        newEvents: 0,
-        error:
-          `HTTP ${listing.status}`
-      });
-
-      return res.status(200).json({
-        success: true,
-        platform:
-          platform.name,
-        reachable: false,
-        status:
-          listing.status,
-        created: 0,
-        updated: 0
-      });
-    }
-
-    const links =
-      extractLinks(
-        listing.html,
-        platform.events_source_url
-      );
-
-    const candidates =
-      links
-        .filter((item) =>
-          isEventCandidate(
-            item.title
-          )
-        )
-        .slice(
-          0,
-          MAX_LINKS
-        );
-
-    const created = [];
-    const updated = [];
-    const skipped = [];
-
-    /*
-      نفحص عددًا محدودًا من صفحات الأحداث
-      في كل تشغيل.
-    */
-
-    for (const candidate of candidates.slice(
-      0,
-      3
-    )) {
+    for (const candidate of links) {
       try {
         const page =
           await fetchPage(
@@ -749,9 +734,13 @@ export default async function handler(
           );
 
         if (!page.ok) {
-          skipped.push({
+          report.skipped++;
+
+          report.details.push({
             title:
               candidate.title,
+            outcome:
+              "skipped",
             reason:
               `HTTP ${page.status}`
           });
@@ -785,30 +774,25 @@ export default async function handler(
             text
           );
 
-        /*
-          لا ندخل حدثًا جديدًا
-          إذا كانت البيانات الأساسية
-          غير مؤكدة.
-        */
-        if (
-          !reward ||
-          !dates?.start ||
-          !dates?.end
-        ) {
-          skipped.push({
-            title,
-            url:
-              page.url,
-            reason:
-              "Missing reward or event dates"
-          });
+        const imageUrl =
+          getImage(
+            page.html,
+            page.url
+          );
 
-          continue;
-        }
+        const volumeRequired =
+          extractVolume(
+            text
+          );
 
-        const affiliate =
-          getAffiliate(
-            platform.name
+        const depositRequired =
+          extractDeposit(
+            text
+          );
+
+        const tradeType =
+          detectTradeType(
+            text
           );
 
         const eligibility =
@@ -816,217 +800,116 @@ export default async function handler(
             text
           );
 
-        const event = {
-          slug:
-            makeSlug(
-              platform.name,
-              title
-            ),
+        const taskRewards =
+          extractTaskRewards(
+            text
+          );
 
-          platform_id:
-            Number(platform.id),
+        /*
+          لا نحفظ أي حملة غير مكتملة.
+        */
+        if (
+          !reward ||
+          !dates?.start ||
+          !dates?.end
+        ) {
+          report.skipped++;
 
-          title_ar:
+          report.details.push({
             title,
+            outcome:
+              "skipped",
+            reason:
+              "Missing verified reward or dates"
+          });
 
-          title_en:
+          continue;
+        }
+
+        const event =
+          buildEvent({
             title,
-
-          description_ar:
-            description ||
-            "تم التحقق من الحدث من المصدر الرسمي.",
-
-          description_en:
-            description ||
-            "Event verified from the official source.",
-
-          reward_ar:
+            description,
             reward,
-
-          reward_en:
-            reward,
-
-          event_type:
-            detectTradeType(
-              text
-            ) || "campaign",
-
-          status:
-            new Date() <
-            dates.start
-              ? "upcoming"
-              : new Date() >
-                dates.end
-              ? "ended"
-              : "active",
-
-          start_at:
-            dates.start.toISOString(),
-
-          end_at:
-            dates.end.toISOString(),
-
-          official_url:
-            page.url,
-
-          volume_required:
-            extractVolume(
-              text
-            ),
-
-          deposit_required:
-            extractDeposit(
-              text
-            ),
-
-          trade_type:
-            detectTradeType(
-              text
-            ),
-
-          min_trade:
-            null,
-
-          new_users_only:
-            eligibility.newUsersOnly,
-
-          existing_users_allowed:
-            eligibility.existingUsersAllowed,
-
-          kyc_required:
-            /\bkyc\b/i.test(text),
-
-          region_restrictions:
-            null,
-
-          registration_required:
-            true,
-
-          distribution_date:
-            null,
-
-          distribution_method:
-            null,
-
-          affiliate_url:
-            affiliate.url,
-
-          affiliate_code:
-            affiliate.code,
-
-          image_url:
-            getImage(
-              page.html,
+            imageUrl,
+            dates,
+            volumeRequired,
+            depositRequired,
+            tradeType,
+            eligibility,
+            taskRewards,
+            officialUrl:
               page.url
-            ),
-
-          source_url:
-            page.url,
-
-          last_verified_at:
-            new Date().toISOString(),
-
-          priority:
-            50,
-
-          task_rewards:
-            extractTaskRewards(
-              text
-            )
-        };
+          });
 
         const existingRow =
-          existingByUrl.get(
+          byUrl.get(
             event.official_url
           ) ||
-          existingBySlug.get(
+          bySlug.get(
             event.slug
           );
 
         if (existingRow) {
-          await updateEvent(
+          await updateExistingEvent(
             existingRow.id,
             event
           );
 
-          updated.push({
+          report.updated++;
+
+          report.details.push({
+            title:
+              event.title_ar,
+            outcome:
+              "updated",
             eventId:
               existingRow.id,
-            title,
             image:
               Boolean(
                 event.image_url
               )
           });
         } else {
-          await createEvent(
+          await saveNewEvent(
             event
           );
 
-          created.push({
-            title,
-            url:
-              event.official_url,
+          report.created++;
+
+          report.details.push({
+            title:
+              event.title_ar,
+            outcome:
+              "created",
             image:
               Boolean(
                 event.image_url
-              )
+              ),
+            url:
+              event.official_url
           });
         }
       } catch (error) {
-        skipped.push({
+        report.skipped++;
+
+        report.details.push({
           title:
             candidate.title,
-          url:
-            candidate.url,
-          reason:
+          outcome:
+            "error",
+          error:
             error.message
         });
       }
     }
 
-    await updateSync({
-      platformId:
-        platform.id,
-      status: "success",
-      candidates:
-        candidates.length,
-      newEvents:
-        created.length,
-      error: null
-    });
-
-    return res.status(200).json({
-      success: true,
-      platform:
-        platform.name,
-      platformId:
-        platform.id,
-      source:
-        platform.events_source_url,
-      candidates:
-        candidates.length,
-      checked:
-        Math.min(
-          candidates.length,
-          3
-        ),
-      created:
-        created.length,
-      updated:
-        updated.length,
-      skipped:
-        skipped.length,
-      createdEvents:
-        created,
-      updatedEvents:
-        updated,
-      skippedEvents:
-        skipped
-    });
+    return res.status(200).json(
+      report
+    );
   } catch (error) {
     console.error(
-      "Event sync error:",
+      "Bybit sync error:",
       error
     );
 
