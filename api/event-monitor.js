@@ -44,18 +44,57 @@ const SOURCES = [
   }
 ];
 
+const TIMEOUT_MS = 12000;
+
 function cleanText(value = "") {
   return String(value)
     .replace(/\s+/g, " ")
     .trim();
 }
 
-async function fetchWithTimeout(url, timeoutMs = 12000) {
+function makeSlug(platform, title) {
+  return `${platform}-${title}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06ff]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 180);
+}
+
+function looksLikeEvent(title = "") {
+  const text = title.toLowerCase();
+
+  const keywords = [
+    "campaign",
+    "event",
+    "reward",
+    "rewards",
+    "bonus",
+    "competition",
+    "challenge",
+    "airdrop",
+    "giveaway",
+    "trading",
+    "trade",
+    "usdt",
+    "usdc",
+    "مكاف",
+    "حملة",
+    "حدث",
+    "تحدي",
+    "مسابقة"
+  ];
+
+  return keywords.some((keyword) =>
+    text.includes(keyword)
+  );
+}
+
+async function fetchWithTimeout(url) {
   const controller = new AbortController();
 
-  const timer = setTimeout(() => {
+  const timeout = setTimeout(() => {
     controller.abort();
-  }, timeoutMs);
+  }, TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {
@@ -63,7 +102,7 @@ async function fetchWithTimeout(url, timeoutMs = 12000) {
       signal: controller.signal,
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; CryptoEventsBot/1.0)",
+          "Mozilla/5.0 (compatible; CryptoEventsMonitor/1.0)",
         Accept:
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
       }
@@ -77,12 +116,12 @@ async function fetchWithTimeout(url, timeoutMs = 12000) {
       text
     };
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timeout);
   }
 }
 
 function extractLinks(html, baseUrl) {
-  const results = [];
+  const links = [];
 
   const regex =
     /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
@@ -117,42 +156,13 @@ function extractLinks(html, baseUrl) {
       continue;
     }
 
-    results.push({
+    links.push({
       title,
       url: href
     });
   }
 
-  return results;
-}
-
-function looksLikeEvent(title) {
-  const value = title.toLowerCase();
-
-  const keywords = [
-    "campaign",
-    "event",
-    "reward",
-    "rewards",
-    "bonus",
-    "competition",
-    "challenge",
-    "airdrop",
-    "giveaway",
-    "trading",
-    "trade",
-    "usdt",
-    "usdc",
-    "مكاف",
-    "حملة",
-    "حدث",
-    "تحدي",
-    "مسابقة"
-  ];
-
-  return keywords.some((keyword) =>
-    value.includes(keyword)
-  );
+  return links;
 }
 
 function findImage(html, pageUrl) {
@@ -170,7 +180,10 @@ function findImage(html, pageUrl) {
     }
 
     try {
-      return new URL(match[1], pageUrl).toString();
+      return new URL(
+        match[1],
+        pageUrl
+      ).toString();
     } catch {
       return null;
     }
@@ -179,9 +192,14 @@ function findImage(html, pageUrl) {
   return null;
 }
 
-async function supabaseGet(path) {
+async function supabaseRequest(
+  path,
+  options = {}
+) {
   if (!SUPABASE_URL) {
-    throw new Error("SUPABASE_URL is not configured");
+    throw new Error(
+      "SUPABASE_URL is not configured"
+    );
   }
 
   if (!SUPABASE_KEY) {
@@ -193,11 +211,14 @@ async function supabaseGet(path) {
   const response = await fetch(
     `${SUPABASE_URL}${path}`,
     {
-      method: "GET",
+      ...options,
       headers: {
         apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json"
+        Authorization:
+          `Bearer ${SUPABASE_KEY}`,
+        "Content-Type":
+          "application/json",
+        ...(options.headers || {})
       }
     }
   );
@@ -215,9 +236,9 @@ async function supabaseGet(path) {
   if (!response.ok) {
     throw new Error(
       data?.message ||
-        data?.hint ||
-        data?.details ||
-        `Supabase HTTP ${response.status}`
+      data?.hint ||
+      data?.details ||
+      `Supabase HTTP ${response.status}`
     );
   }
 
@@ -225,21 +246,26 @@ async function supabaseGet(path) {
 }
 
 async function getPlatformMap() {
-  const rows = await supabaseGet(
-    "/rest/v1/platforms?select=id,name&is_active=eq.true"
+  const rows = await supabaseRequest(
+    "/rest/v1/platforms?select=id,name&is_active=eq.true&order=id"
   );
 
-  const map = {};
+  const map = new Map();
 
   for (const row of rows || []) {
-    map[String(row.name).toLowerCase()] = row.id;
+    map.set(
+      String(row.name)
+        .trim()
+        .toLowerCase(),
+      Number(row.id)
+    );
   }
 
   return map;
 }
 
 async function getExistingSlugs() {
-  const rows = await supabaseGet(
+  const rows = await supabaseRequest(
     "/rest/v1/events?select=slug"
   );
 
@@ -248,7 +274,51 @@ async function getExistingSlugs() {
   );
 }
 
-export default async function handler(req, res) {
+async function updateSync({
+  platformId,
+  status,
+  lastError,
+  candidatesFound,
+  newEventsFound
+}) {
+  const now =
+    new Date().toISOString();
+
+  const payload = {
+    platform_id: platformId,
+    last_checked_at: now,
+    status,
+    candidates_found:
+      Number(candidatesFound || 0),
+    new_events_found:
+      Number(newEventsFound || 0),
+    last_error:
+      lastError || null,
+    updated_at: now
+  };
+
+  if (status === "success") {
+    payload.last_success_at = now;
+  }
+
+  await supabaseRequest(
+    "/rest/v1/event_source_sync?on_conflict=platform_id",
+    {
+      method: "POST",
+      headers: {
+        Prefer:
+          "resolution=merge-duplicates,return=minimal"
+      },
+      body:
+        JSON.stringify(payload)
+    }
+  );
+}
+
+export default async function handler(
+  req,
+  res
+) {
   if (req.method !== "GET") {
     return res.status(405).json({
       success: false,
@@ -267,41 +337,63 @@ export default async function handler(req, res) {
   };
 
   try {
-    const platformMap = await getPlatformMap();
-    const existingSlugs = await getExistingSlugs();
+    const platformMap =
+      await getPlatformMap();
+
+    const existingSlugs =
+      await getExistingSlugs();
 
     for (const source of SOURCES) {
       report.checked++;
 
-      try {
-        const platformId =
-          platformMap[source.platform.toLowerCase()];
-
-        if (!platformId) {
-          report.failed++;
-
-          report.sources.push({
-            platform: source.platform,
-            success: false,
-            error: "Platform not found in Supabase"
-          });
-
-          continue;
-        }
-
-        const response = await fetchWithTimeout(
-          source.url
+      const platformId =
+        platformMap.get(
+          source.platform.toLowerCase()
         );
+
+      if (!platformId) {
+        report.failed++;
+
+        report.sources.push({
+          platform:
+            source.platform,
+          success: false,
+          error:
+            "Platform not found in Supabase"
+        });
+
+        continue;
+      }
+
+      try {
+        const response =
+          await fetchWithTimeout(
+            source.url
+          );
 
         if (!response.ok) {
           report.failed++;
 
+          const errorMessage =
+            `HTTP ${response.status}`;
+
+          await updateSync({
+            platformId,
+            status: "error",
+            lastError: errorMessage,
+            candidatesFound: 0,
+            newEventsFound: 0
+          });
+
           report.sources.push({
-            platform: source.platform,
+            platform:
+              source.platform,
             success: false,
-            status: response.status,
+            status:
+              response.status,
             candidates: 0,
-            newCandidates: 0
+            newCandidates: 0,
+            imageFound: false
           });
 
           continue;
@@ -309,28 +401,36 @@ export default async function handler(req, res) {
 
         report.reachable++;
 
-        const links = extractLinks(
-          response.text,
-          source.url
-        );
+        const links =
+          extractLinks(
+            response.text,
+            source.url
+          );
 
-        const candidates = links.filter((item) =>
-          looksLikeEvent(item.title)
-        );
+        const candidates =
+          links.filter((link) =>
+            looksLikeEvent(
+              link.title
+            )
+          );
 
         let newCandidates = 0;
+
         const items = [];
 
-        for (const item of candidates.slice(0, 20)) {
-          const slug =
-            `${source.platform}-${item.title}`
-              .toLowerCase()
-              .replace(/[^a-z0-9\u0600-\u06ff]+/gi, "-")
-              .replace(/^-+|-+$/g, "")
-              .slice(0, 180);
+        for (
+          const item of candidates.slice(
+            0,
+            30
+          )
+        ) {
+          const slug = makeSlug(
+            source.platform,
+            item.title
+          );
 
           const isNew =
-            slug &&
+            Boolean(slug) &&
             !existingSlugs.has(slug);
 
           if (isNew) {
@@ -338,12 +438,20 @@ export default async function handler(req, res) {
           }
 
           items.push({
-            title: item.title,
-            url: item.url,
+            title:
+              item.title,
+            url:
+              item.url,
             slug,
-            platformId
+            isNew
           });
         }
+
+        const imageUrl =
+          findImage(
+            response.text,
+            source.url
+          );
 
         report.totalCandidates +=
           candidates.length;
@@ -351,33 +459,67 @@ export default async function handler(req, res) {
         report.newCandidates +=
           newCandidates;
 
+        await updateSync({
+          platformId,
+          status: "success",
+          lastError: null,
+          candidatesFound:
+            candidates.length,
+          newEventsFound:
+            newCandidates
+        });
+
         report.sources.push({
-          platform: source.platform,
+          platform:
+            source.platform,
           success: true,
-          candidates: candidates.length,
+          candidates:
+            candidates.length,
           newCandidates,
+          imageFound:
+            Boolean(imageUrl),
           items
         });
       } catch (error) {
         report.failed++;
 
+        const errorMessage =
+          error.name === "AbortError"
+            ? "Request timeout"
+            : error.message;
+
+        await updateSync({
+          platformId,
+          status: "error",
+          lastError:
+            errorMessage,
+          candidatesFound: 0,
+          newEventsFound: 0
+        });
+
         report.sources.push({
-          platform: source.platform,
+          platform:
+            source.platform,
           success: false,
+          candidates: 0,
+          newCandidates: 0,
           error:
-            error.name === "AbortError"
-              ? "Request timeout"
-              : error.message
+            errorMessage
         });
       }
     }
 
     return res.status(200).json(report);
   } catch (error) {
+    console.error(
+      "Event monitor error:",
+      error
+    );
+
     return res.status(500).json({
       success: false,
       error: error.message,
-      partialReport: report
+      report
     });
   }
 }
