@@ -1,56 +1,45 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
 
 const SOURCES = [
   {
     platform: "Bybit",
-    platformId: 1,
     url: "https://announcements.bybit.com/en/"
   },
   {
     platform: "Binance",
-    platformId: 2,
     url: "https://www.binance.com/en/support/announcement/list/93"
   },
   {
     platform: "Bitget",
-    platformId: 3,
     url: "https://www.bitget.com/support"
   },
   {
     platform: "OKX",
-    platformId: 4,
     url: "https://www.okx.com/campaigns"
   },
   {
     platform: "Gate.io",
-    platformId: 5,
-    url: "https://www.gate.com/announcements/101035"
+    url: "https://www.gate.com/announcements"
   },
   {
     platform: "MEXC",
-    platformId: 6,
     url: "https://www.mexc.com/announcements/all"
   },
   {
     platform: "WEEX",
-    platformId: 7,
     url: "https://www.weex.com/news"
   },
   {
     platform: "LBank",
-    platformId: 8,
     url: "https://www.lbank.com/support"
   },
   {
     platform: "BloFin",
-    platformId: 9,
     url: "https://blofin.com/en/support/Announcement/Latest-Promotions"
   },
   {
     platform: "Bitunix Pro",
-    platformId: 10,
     url: "https://www.bitunix.com/activity/act-center"
   }
 ];
@@ -61,23 +50,18 @@ function cleanText(value = "") {
     .trim();
 }
 
-function escapeSqlText(value = "") {
-  return String(value).replace(/'/g, "''");
-}
-
 function makeSlug(platform, title) {
   return `${platform}-${title}`
     .toLowerCase()
-    .replace(/https?:\/\/\S+/g, "")
     .replace(/[^a-z0-9\u0600-\u06ff]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 180);
 }
 
-function isLikelyEvent(title, text) {
-  const source = `${title} ${text}`.toLowerCase();
+function isLikelyEvent(text) {
+  const source = text.toLowerCase();
 
-  const eventWords = [
+  const words = [
     "campaign",
     "event",
     "reward",
@@ -87,105 +71,27 @@ function isLikelyEvent(title, text) {
     "challenge",
     "airdrop",
     "giveaway",
-    "trade",
     "trading",
+    "trade",
     "usdt",
     "usdc",
     "مكاف",
-    "حدث",
     "حملة",
+    "حدث",
     "تحدي",
     "مسابقة"
   ];
 
-  return eventWords.some((word) =>
+  return words.some((word) =>
     source.includes(word)
   );
-}
-
-function extractDateRange(text) {
-  const cleaned = cleanText(text);
-
-  const months =
-    "(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)";
-
-  const englishRange = new RegExp(
-    `${months}\\s+\\d{1,2}[^-–—]{0,40}[-–—]\\s*${months}\\s+\\d{1,2}[^\\d]{0,20}\\d{4}`,
-    "i"
-  );
-
-  const match = cleaned.match(englishRange);
-
-  return match ? match[0] : null;
-}
-
-function extractReward(text) {
-  const cleaned = cleanText(text);
-
-  const patterns = [
-    /(?:up to|share|prize pool|rewards?)[^$]{0,50}\$\s?[\d,.]+\s?(?:USDT|USDC|USD|BTC)?/i,
-    /[\d,.]+\s?(?:USDT|USDC|USD)\s+(?:prize pool|rewards?)/i,
-    /(?:حتى|مكافآت|جوائز)[^0-9]{0,30}[\d,.]+\s?(?:USDT|USDC|USD|دولار)/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = cleaned.match(pattern);
-
-    if (match) {
-      return match[0];
-    }
-  }
-
-  return null;
-}
-
-function extractVolume(text) {
-  const cleaned = cleanText(text);
-
-  const patterns = [
-    /(?:trading volume|trade volume|volume)[^0-9]{0,25}([\d,.]+)\s?(?:USDT|USDC|USD)/i,
-    /(?:حجم التداول)[^0-9]{0,25}([\d,.]+)\s?(?:USDT|USDC|USD)/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = cleaned.match(pattern);
-
-    if (match) {
-      return Number(
-        match[1].replace(/,/g, "")
-      );
-    }
-  }
-
-  return null;
-}
-
-function extractDeposit(text) {
-  const cleaned = cleanText(text);
-
-  const patterns = [
-    /(?:deposit|deposit at least)[^0-9]{0,25}([\d,.]+)\s?(?:USDT|USDC|USD)/i,
-    /(?:إيداع|الإيداع)[^0-9]{0,25}([\d,.]+)\s?(?:USDT|USDC|USD)/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = cleaned.match(pattern);
-
-    if (match) {
-      return Number(
-        match[1].replace(/,/g, "")
-      );
-    }
-  }
-
-  return null;
 }
 
 async function fetchHtml(url) {
   const response = await fetch(url, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 CryptoEventsMonitor/1.0",
+        "Mozilla/5.0 (compatible; CryptoEventsMonitor/1.0)",
       Accept:
         "text/html,application/xhtml+xml"
     }
@@ -193,11 +99,11 @@ async function fetchHtml(url) {
 
   if (!response.ok) {
     throw new Error(
-      `HTTP ${response.status} from ${url}`
+      `HTTP ${response.status}`
     );
   }
 
-  return await response.text();
+  return response.text();
 }
 
 function extractLinks(html, baseUrl) {
@@ -230,25 +136,30 @@ function extractLinks(html, baseUrl) {
     const text =
       match[2]
         .replace(/<[^>]+>/g, " ")
-        .replace(/&nbsp;/g, " ");
+        .replace(/&nbsp;/gi, " ");
+
+    const title =
+      cleanText(text);
+
+    if (!title) continue;
 
     links.push({
-      url: href,
-      text: cleanText(text)
+      title,
+      url: href
     });
   }
 
   return links;
 }
 
-function findImage(html, url) {
-  const imagePatterns = [
+function findImage(html, pageUrl) {
+  const patterns = [
     /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
-    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
-    /<img[^>]+src=["']([^"']+)["']/i
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i
   ];
 
-  for (const pattern of imagePatterns) {
+  for (const pattern of patterns) {
     const match = html.match(pattern);
 
     if (!match) continue;
@@ -256,10 +167,10 @@ function findImage(html, url) {
     try {
       return new URL(
         match[1],
-        url
+        pageUrl
       ).toString();
     } catch {
-      continue;
+      return null;
     }
   }
 
@@ -278,7 +189,7 @@ async function supabaseRequest(
 
   if (!SUPABASE_KEY) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is not configured"
+      "SUPABASE_PUBLISHABLE_KEY is not configured"
     );
   }
 
@@ -288,18 +199,24 @@ async function supabaseRequest(
       ...options,
       headers: {
         apikey: SUPABASE_KEY,
-        "Content-Type": "application/json",
+        Authorization:
+          `Bearer ${SUPABASE_KEY}`,
+        "Content-Type":
+          "application/json",
         ...(options.headers || {})
       }
     }
   );
 
-  const text = await response.text();
+  const text =
+    await response.text();
 
   let data = null;
 
   try {
-    data = text ? JSON.parse(text) : null;
+    data = text
+      ? JSON.parse(text)
+      : null;
   } catch {
     data = text;
   }
@@ -307,8 +224,9 @@ async function supabaseRequest(
   if (!response.ok) {
     throw new Error(
       data?.message ||
-        data?.details ||
-        `Supabase error ${response.status}`
+      data?.hint ||
+      data?.details ||
+      `Supabase error ${response.status}`
     );
   }
 
@@ -316,9 +234,10 @@ async function supabaseRequest(
 }
 
 async function getExistingSlugs() {
-  const rows = await supabaseRequest(
-    "/rest/v1/events?select=slug"
-  );
+  const rows =
+    await supabaseRequest(
+      "/rest/v1/events?select=slug"
+    );
 
   return new Set(
     Array.isArray(rows)
@@ -327,90 +246,39 @@ async function getExistingSlugs() {
   );
 }
 
-async function createEvent(event) {
+async function getPlatformMap() {
+  const rows =
+    await supabaseRequest(
+      "/rest/v1/platforms?select=id,name&is_active=eq.true"
+    );
+
+  const map = new Map();
+
+  if (Array.isArray(rows)) {
+    for (const row of rows) {
+      map.set(
+        String(row.name).toLowerCase(),
+        row.id
+      );
+    }
+  }
+
+  return map;
+}
+
+async function insertEvent(event) {
   return supabaseRequest(
     "/rest/v1/events",
     {
       method: "POST",
       headers: {
-        Prefer: "return=representation"
+        Prefer:
+          "return=representation"
       },
-      body: JSON.stringify(event)
+      body:
+        JSON.stringify(event)
     }
   );
-}
-
-async function scanSource(source) {
-  const html =
-    await fetchHtml(source.url);
-
-  const links =
-    extractLinks(
-      html,
-      source.url
-    );
-
-  const sourceImage =
-    findImage(
-      html,
-      source.url
-    );
-
-  const candidates = [];
-
-  for (const link of links) {
-    if (!link.text) continue;
-
-    if (
-      link.url === source.url ||
-      link.text.length < 8
-    ) {
-      continue;
-    }
-
-    if (
-      link.url.includes("/support/") === false &&
-      link.url.includes("/article") === false &&
-      link.url.includes("/campaign") === false &&
-      link.url.includes("/activity") === false &&
-      link.url.includes("/announcements/") === false &&
-      link.url.includes("/news/") === false
-    ) {
-      continue;
-    }
-
-    if (
-      !isLikelyEvent(
-        link.text,
-        ""
-      )
-    ) {
-      continue;
-    }
-
-    candidates.push({
-      title: link.text,
-      url: link.url,
-      imageUrl: sourceImage
-    });
-  }
-
-  /*
-    إزالة التكرار.
-  */
-  const unique =
-    new Map();
-
-  for (const candidate of candidates) {
-    unique.set(
-      candidate.url,
-      candidate
-    );
-  }
-
-  return [
-    ...unique.values()
-  ].slice(0, 20);
 }
 
 export default async function handler(
@@ -431,21 +299,65 @@ export default async function handler(
     const existingSlugs =
       await getExistingSlugs();
 
+    const platformMap =
+      await getPlatformMap();
+
     const results = [];
     const created = [];
 
     for (const source of SOURCES) {
       try {
-        const candidates =
-          await scanSource(source);
+        const platformId =
+          platformMap.get(
+            source.platform.toLowerCase()
+          );
+
+        if (!platformId) {
+          results.push({
+            platform:
+              source.platform,
+            error:
+              "Platform not found in Supabase"
+          });
+
+          continue;
+        }
+
+        const html =
+          await fetchHtml(
+            source.url
+          );
+
+        const links =
+          extractLinks(
+            html,
+            source.url
+          );
+
+        const sourceImage =
+          findImage(
+            html,
+            source.url
+          );
 
         let added = 0;
 
-        for (const candidate of candidates) {
+        for (const link of links.slice(
+          0,
+          30
+        )) {
+          if (
+            !isLikelyEvent(
+              link.title
+            )
+          ) {
+            continue;
+          }
+
           const slug =
             makeSlug(
               source.platform,
-              candidate.title
+              link.title
             );
 
           if (
@@ -455,36 +367,41 @@ export default async function handler(
             continue;
           }
 
+          /*
+            مهم:
+            لا نخمن موعد بداية أو نهاية
+            للحدث المكتشف.
+            نخليه upcoming لحد ما تتم
+            مرحلة التحقق المتقدمة.
+          */
+
           const event = {
             slug,
+
             platform_id:
-              source.platformId,
+              platformId,
 
             title_ar:
-              candidate.title,
+              link.title,
 
             title_en:
-              candidate.title,
+              link.title,
 
             description_ar:
-              "تم اكتشاف هذا الحدث تلقائيًا من المصدر الرسمي. سيتم تحديث التفاصيل تلقائيًا.",
+              "تم اكتشاف الحدث من المصدر الرسمي. سيتم تحديث تفاصيله بعد التحقق.",
 
             description_en:
-              "This event was automatically discovered from the official source.",
+              "Event discovered from the official source and awaiting detailed verification.",
 
             reward_ar:
-              extractReward(candidate.title),
+              "راجع تفاصيل الحدث الرسمية.",
 
             reward_en:
-              extractReward(candidate.title),
+              "Check the official event details.",
 
             event_type:
               "discovered",
 
-            /*
-              نبدأ كـ upcoming حتى يتم
-              استخراج المواعيد والتحقق منها.
-            */
             status:
               "upcoming",
 
@@ -494,24 +411,17 @@ export default async function handler(
             end_at:
               new Date(
                 Date.now() +
-                  24 *
-                    60 *
-                    60 *
-                    1000
+                  24 * 60 * 60 * 1000
               ).toISOString(),
 
             official_url:
-              candidate.url,
+              link.url,
 
             volume_required:
-              extractVolume(
-                candidate.title
-              ),
+              null,
 
             deposit_required:
-              extractDeposit(
-                candidate.title
-              ),
+              null,
 
             trade_type:
               null,
@@ -547,7 +457,7 @@ export default async function handler(
               null,
 
             image_url:
-              candidate.imageUrl,
+              sourceImage,
 
             source_url:
               source.url,
@@ -556,35 +466,34 @@ export default async function handler(
               new Date().toISOString(),
 
             priority:
-              10
+              10,
+
+            task_rewards:
+              null
           };
 
           try {
-            const inserted =
-              await createEvent(
-                event
-              );
-
-            created.push({
-              platform:
-                source.platform,
-
-              slug,
-              title:
-                candidate.title,
-
-              result:
-                inserted
-            });
+            await insertEvent(
+              event
+            );
 
             existingSlugs.add(
               slug
             );
 
+            created.push({
+              platform:
+                source.platform,
+              title:
+                link.title,
+              slug
+            });
+
             added++;
+
           } catch (insertError) {
             console.warn(
-              `Failed to add ${slug}:`,
+              `Insert failed for ${slug}:`,
               insertError.message
             );
           }
@@ -594,9 +503,10 @@ export default async function handler(
           platform:
             source.platform,
           candidates:
-            candidates.length,
+            links.length,
           added
         });
+
       } catch (sourceError) {
         results.push({
           platform:
@@ -617,6 +527,7 @@ export default async function handler(
         created.length,
       results
     });
+
   } catch (error) {
     console.error(
       "Event monitor error:",
@@ -625,7 +536,8 @@ export default async function handler(
 
     return res.status(500).json({
       success: false,
-      error: error.message
+      error:
+        error.message
     });
   }
 }
