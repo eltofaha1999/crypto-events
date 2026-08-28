@@ -58,10 +58,10 @@ function makeSlug(platform, title) {
     .slice(0, 180);
 }
 
-function isLikelyEvent(text) {
+function isLikelyEvent(text = "") {
   const source = text.toLowerCase();
 
-  const words = [
+  const keywords = [
     "campaign",
     "event",
     "reward",
@@ -82,33 +82,33 @@ function isLikelyEvent(text) {
     "مسابقة"
   ];
 
-  return words.some((word) =>
-    source.includes(word)
+  return keywords.some((keyword) =>
+    source.includes(keyword)
   );
 }
 
 async function fetchHtml(url) {
   const response = await fetch(url, {
+    method: "GET",
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (compatible; CryptoEventsMonitor/1.0)",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CryptoEventsMonitor/1.0",
       Accept:
-        "text/html,application/xhtml+xml"
+        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     }
   });
 
   if (!response.ok) {
     throw new Error(
-      `HTTP ${response.status}`
+      `Source returned HTTP ${response.status}`
     );
   }
 
-  return response.text();
+  return await response.text();
 }
 
 function extractLinks(html, baseUrl) {
   const links = [];
-
   const regex =
     /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
 
@@ -119,7 +119,8 @@ function extractLinks(html, baseUrl) {
 
     if (
       href.startsWith("#") ||
-      href.startsWith("javascript:")
+      href.startsWith("javascript:") ||
+      href.startsWith("mailto:")
     ) {
       continue;
     }
@@ -133,18 +134,18 @@ function extractLinks(html, baseUrl) {
       continue;
     }
 
-    const text =
+    const text = cleanText(
       match[2]
         .replace(/<[^>]+>/g, " ")
-        .replace(/&nbsp;/gi, " ");
+        .replace(/&nbsp;/gi, " ")
+    );
 
-    const title =
-      cleanText(text);
-
-    if (!title) continue;
+    if (!text || text.length < 8) {
+      continue;
+    }
 
     links.push({
-      title,
+      title: text,
       url: href
     });
   }
@@ -162,7 +163,9 @@ function findImage(html, pageUrl) {
   for (const pattern of patterns) {
     const match = html.match(pattern);
 
-    if (!match) continue;
+    if (!match) {
+      continue;
+    }
 
     try {
       return new URL(
@@ -170,7 +173,7 @@ function findImage(html, pageUrl) {
         pageUrl
       ).toString();
     } catch {
-      return null;
+      continue;
     }
   }
 
@@ -199,24 +202,19 @@ async function supabaseRequest(
       ...options,
       headers: {
         apikey: SUPABASE_KEY,
-        Authorization:
-          `Bearer ${SUPABASE_KEY}`,
-        "Content-Type":
-          "application/json",
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
         ...(options.headers || {})
       }
     }
   );
 
-  const text =
-    await response.text();
+  const text = await response.text();
 
   let data = null;
 
   try {
-    data = text
-      ? JSON.parse(text)
-      : null;
+    data = text ? JSON.parse(text) : null;
   } catch {
     data = text;
   }
@@ -233,24 +231,10 @@ async function supabaseRequest(
   return data;
 }
 
-async function getExistingSlugs() {
-  const rows =
-    await supabaseRequest(
-      "/rest/v1/events?select=slug"
-    );
-
-  return new Set(
-    Array.isArray(rows)
-      ? rows.map((row) => row.slug)
-      : []
-  );
-}
-
 async function getPlatformMap() {
-  const rows =
-    await supabaseRequest(
-      "/rest/v1/platforms?select=id,name&is_active=eq.true"
-    );
+  const rows = await supabaseRequest(
+    "/rest/v1/platforms?select=id,name&is_active=eq.true"
+  );
 
   const map = new Map();
 
@@ -266,19 +250,105 @@ async function getPlatformMap() {
   return map;
 }
 
+async function getExistingSlugs() {
+  const rows = await supabaseRequest(
+    "/rest/v1/events?select=slug"
+  );
+
+  return new Set(
+    Array.isArray(rows)
+      ? rows.map((row) => row.slug)
+      : []
+  );
+}
+
 async function insertEvent(event) {
   return supabaseRequest(
     "/rest/v1/events",
     {
       method: "POST",
       headers: {
-        Prefer:
-          "return=representation"
+        Prefer: "return=representation"
       },
-      body:
-        JSON.stringify(event)
+      body: JSON.stringify(event)
     }
   );
+}
+
+function buildCandidate(source, platformId, candidate) {
+  const slug = makeSlug(
+    source.platform,
+    candidate.title
+  );
+
+  return {
+    slug,
+
+    platform_id: platformId,
+
+    title_ar: candidate.title,
+    title_en: candidate.title,
+
+    description_ar:
+      "تم اكتشاف هذا الحدث من المصدر الرسمي. سيتم التحقق من تفاصيل المكافأة والشروط والمواعيد قبل اعتماده للنشر.",
+
+    description_en:
+      "This event was discovered from the official source and will be verified before publication.",
+
+    reward_ar:
+      "سيتم التحقق من المكافأة من المصدر الرسمي.",
+    reward_en:
+      "Reward will be verified from the official source.",
+
+    event_type: "discovered",
+
+    /*
+      لا نعتبر الحدث نشطًا بمجرد العثور على عنوانه.
+      يبقى upcoming إلى أن يتم التحقق من تفاصيله.
+    */
+    status: "upcoming",
+
+    start_at: new Date().toISOString(),
+
+    end_at:
+      new Date(
+        Date.now() +
+          24 * 60 * 60 * 1000
+      ).toISOString(),
+
+    official_url: candidate.url,
+
+    volume_required: null,
+    deposit_required: null,
+    trade_type: null,
+    min_trade: null,
+
+    new_users_only: false,
+    existing_users_allowed: true,
+    kyc_required: false,
+
+    region_restrictions: null,
+
+    registration_required: true,
+
+    distribution_date: null,
+    distribution_method: null,
+
+    affiliate_url: null,
+    affiliate_code: null,
+
+    image_url:
+      candidate.imageUrl || null,
+
+    source_url: source.url,
+
+    last_verified_at:
+      new Date().toISOString(),
+
+    priority: 10,
+
+    task_rewards: null
+  };
 }
 
 export default async function handler(
@@ -296,11 +366,11 @@ export default async function handler(
   }
 
   try {
-    const existingSlugs =
-      await getExistingSlugs();
-
     const platformMap =
       await getPlatformMap();
+
+    const existingSlugs =
+      await getExistingSlugs();
 
     const results = [];
     const created = [];
@@ -314,8 +384,9 @@ export default async function handler(
 
         if (!platformId) {
           results.push({
-            platform:
-              source.platform,
+            platform: source.platform,
+            candidates: 0,
+            added: 0,
             error:
               "Platform not found in Supabase"
           });
@@ -334,210 +405,23 @@ export default async function handler(
             source.url
           );
 
-        const sourceImage =
+        const imageUrl =
           findImage(
             html,
             source.url
           );
 
-        let added = 0;
-
-        for (const link of links.slice(
-          0,
-          30
-        )) {
-          if (
-            !isLikelyEvent(
+        const candidates =
+          links.filter((link) =>
+            isLikelyEvent(
               link.title
             )
-          ) {
-            continue;
-          }
+          );
 
-          const slug =
-            makeSlug(
-              source.platform,
-              link.title
-            );
+        let added = 0;
 
-          if (
-            !slug ||
-            existingSlugs.has(slug)
-          ) {
-            continue;
-          }
-
-          /*
-            مهم:
-            لا نخمن موعد بداية أو نهاية
-            للحدث المكتشف.
-            نخليه upcoming لحد ما تتم
-            مرحلة التحقق المتقدمة.
-          */
-
-          const event = {
-            slug,
-
-            platform_id:
-              platformId,
-
-            title_ar:
-              link.title,
-
-            title_en:
-              link.title,
-
-            description_ar:
-              "تم اكتشاف الحدث من المصدر الرسمي. سيتم تحديث تفاصيله بعد التحقق.",
-
-            description_en:
-              "Event discovered from the official source and awaiting detailed verification.",
-
-            reward_ar:
-              "راجع تفاصيل الحدث الرسمية.",
-
-            reward_en:
-              "Check the official event details.",
-
-            event_type:
-              "discovered",
-
-            status:
-              "upcoming",
-
-            start_at:
-              new Date().toISOString(),
-
-            end_at:
-              new Date(
-                Date.now() +
-                  24 * 60 * 60 * 1000
-              ).toISOString(),
-
-            official_url:
-              link.url,
-
-            volume_required:
-              null,
-
-            deposit_required:
-              null,
-
-            trade_type:
-              null,
-
-            min_trade:
-              null,
-
-            new_users_only:
-              false,
-
-            existing_users_allowed:
-              true,
-
-            kyc_required:
-              false,
-
-            region_restrictions:
-              null,
-
-            registration_required:
-              true,
-
-            distribution_date:
-              null,
-
-            distribution_method:
-              null,
-
-            affiliate_url:
-              null,
-
-            affiliate_code:
-              null,
-
-            image_url:
-              sourceImage,
-
-            source_url:
-              source.url,
-
-            last_verified_at:
-              new Date().toISOString(),
-
-            priority:
-              10,
-
-            task_rewards:
-              null
-          };
-
-          try {
-            await insertEvent(
-              event
-            );
-
-            existingSlugs.add(
-              slug
-            );
-
-            created.push({
-              platform:
-                source.platform,
-              title:
-                link.title,
-              slug
-            });
-
-            added++;
-
-          } catch (insertError) {
-            console.warn(
-              `Insert failed for ${slug}:`,
-              insertError.message
-            );
-          }
-        }
-
-        results.push({
-          platform:
-            source.platform,
-          candidates:
-            links.length,
-          added
-        });
-
-      } catch (sourceError) {
-        results.push({
-          platform:
-            source.platform,
-          candidates: 0,
-          added: 0,
-          error:
-            sourceError.message
-        });
-      }
-    }
-
-    return res.status(200).json({
-      success: true,
-      scanned:
-        SOURCES.length,
-      created:
-        created.length,
-      results
-    });
-
-  } catch (error) {
-    console.error(
-      "Event monitor error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      error:
-        error.message
-    });
-  }
-}
+        for (const candidate of candidates.slice(
+          0,
+          20
+        )) {
+          const
