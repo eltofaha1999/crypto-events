@@ -4,16 +4,20 @@ const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
 const BYBIT_SOURCE =
   "https://announcements.bybit.com/en/?category=latest_activities&page=1";
 
+const PLATFORM_ID = 1;
+
 const AFFILIATE_URL =
   "https://partner.bybit.com/b/165247";
 
 const AFFILIATE_CODE =
   "165247";
 
-const PLATFORM_ID = 1;
-
-const TIMEOUT_MS = 10000;
 const MAX_CANDIDATES = 5;
+const TIMEOUT_MS = 10000;
+
+/* =========================
+   Helpers
+========================= */
 
 function cleanText(value = "") {
   return String(value)
@@ -75,10 +79,11 @@ function isCampaign(title = "") {
     "delist",
     "suspend",
     "suspension",
-    "position tier",
+    "margin trading position tier",
     "fee update",
-    "service discontinuation",
-    "withdrawal service"
+    "service update",
+    "withdrawal service",
+    "service discontinuation"
   ];
 
   if (
@@ -97,9 +102,10 @@ function isCampaign(title = "") {
 async function fetchPage(url) {
   const controller = new AbortController();
 
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, TIMEOUT_MS);
+  const timer = setTimeout(
+    () => controller.abort(),
+    TIMEOUT_MS
+  );
 
   try {
     const response = await fetch(url, {
@@ -107,7 +113,7 @@ async function fetchPage(url) {
       signal: controller.signal,
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 CryptoEventsBybit/1.0",
+          "Mozilla/5.0 (compatible; CryptoEventsBybitSync/2.0)",
         Accept:
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language":
@@ -126,7 +132,71 @@ async function fetchPage(url) {
   }
 }
 
-function extractLinks(html) {
+/* =========================
+   Supabase
+========================= */
+
+async function supabaseRequest(
+  path,
+  options = {}
+) {
+  if (!SUPABASE_URL) {
+    throw new Error(
+      "SUPABASE_URL is not configured"
+    );
+  }
+
+  if (!SUPABASE_KEY) {
+    throw new Error(
+      "SUPABASE_PUBLISHABLE_KEY is not configured"
+    );
+  }
+
+  const response = await fetch(
+    `${SUPABASE_URL}${path}`,
+    {
+      ...options,
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization:
+          `Bearer ${SUPABASE_KEY}`,
+        "Content-Type":
+          "application/json",
+        ...(options.headers || {})
+      }
+    }
+  );
+
+  const text =
+    await response.text();
+
+  let data = null;
+
+  try {
+    data = text
+      ? JSON.parse(text)
+      : null;
+  } catch {
+    data = text;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        data?.hint ||
+        data?.details ||
+        `Supabase error ${response.status}`
+    );
+  }
+
+  return data;
+}
+
+/* =========================
+   Listing Parser
+========================= */
+
+function extractListingLinks(html) {
   const links = [];
 
   const regex =
@@ -134,7 +204,9 @@ function extractLinks(html) {
 
   let match;
 
-  while ((match = regex.exec(html)) !== null) {
+  while (
+    (match = regex.exec(html)) !== null
+  ) {
     let href = match[1];
 
     if (
@@ -163,9 +235,10 @@ function extractLinks(html) {
       continue;
     }
 
-    const title = cleanText(
-      stripHtml(match[2])
-    );
+    const title =
+      cleanText(
+        stripHtml(match[2])
+      );
 
     if (title.length < 8) {
       continue;
@@ -177,14 +250,24 @@ function extractLinks(html) {
     });
   }
 
-  const unique = new Map();
+  const unique =
+    new Map();
 
   for (const item of links) {
-    unique.set(item.url, item);
+    unique.set(
+      item.url,
+      item
+    );
   }
 
-  return [...unique.values()];
+  return [
+    ...unique.values()
+  ];
 }
+
+/* =========================
+   Verifier-like extraction
+========================= */
 
 function getMeta(html, key) {
   const patterns = [
@@ -207,11 +290,16 @@ function getMeta(html, key) {
   ];
 
   for (const pattern of patterns) {
-    const match = html.match(pattern);
+    const match =
+      html.match(pattern);
 
-    if (match?.[1]) {
+    if (
+      match?.[1]
+    ) {
       return cleanText(
-        decodeHtml(match[1])
+        decodeHtml(
+          match[1]
+        )
       );
     }
   }
@@ -219,14 +307,21 @@ function getMeta(html, key) {
   return null;
 }
 
-function getTitle(html, fallback) {
+function extractTitle(
+  html,
+  fallback
+) {
   return (
-    getMeta(html, "og:title") ||
+    getMeta(
+      html,
+      "og:title"
+    ) ||
     cleanText(
       stripHtml(
         html.match(
           /<title[^>]*>([\s\S]*?)<\/title>/i
-        )?.[1] || ""
+        )?.[1] ||
+          ""
       )
     ) ||
     fallback ||
@@ -234,26 +329,41 @@ function getTitle(html, fallback) {
   );
 }
 
-function getDescription(html) {
+function extractDescription(html) {
   return (
-    getMeta(html, "og:description") ||
-    getMeta(html, "description") ||
+    getMeta(
+      html,
+      "og:description"
+    ) ||
+    getMeta(
+      html,
+      "description"
+    ) ||
     null
   );
 }
 
-function getImage(html, pageUrl) {
-  const image =
-    getMeta(html, "og:image") ||
-    getMeta(html, "twitter:image");
+function extractImage(
+  html,
+  pageUrl
+) {
+  const value =
+    getMeta(
+      html,
+      "og:image"
+    ) ||
+    getMeta(
+      html,
+      "twitter:image"
+    );
 
-  if (!image) {
+  if (!value) {
     return null;
   }
 
   try {
     return new URL(
-      image,
+      value,
       pageUrl
     ).toString();
   } catch {
@@ -261,43 +371,26 @@ function getImage(html, pageUrl) {
   }
 }
 
-function getVisibleText(html) {
-  return cleanText(
-    stripHtml(html)
-  );
-}
-
 function extractReward(text) {
   const patterns = [
-    /(?:prize pool|reward pool|total rewards?|rewards?|bonus|earn up to|up to)[^$]{0,140}\$?\s?[\d,.]+\s*(?:USDT|USDC|USD|BTC|ETH)?/i,
+    /(?:prize pool|reward pool|total rewards?|total prize|rewards?|bonus|earn up to|up to)[^$]{0,180}\$?\s?[\d,.]+\s*(?:USDT|USDC|USD|BTC|ETH)?/i,
+
     /\$[\d,.]+\s*(?:USDT|USDC|USD)\b/i,
+
     /[\d,.]+\s*(?:USDT|USDC)\b/i
   ];
 
   for (const pattern of patterns) {
-    const match = text.match(pattern);
+    const match =
+      text.match(pattern);
 
-    if (match?.[0]) {
-      return cleanText(match[0]);
+    if (
+      match?.[0]
+    ) {
+      return cleanText(
+        match[0]
+      );
     }
-  }
-
-  return null;
-}
-
-function parseDateValue(value) {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = cleanText(value)
-    .replace(/\s+UTC\b/i, " UTC")
-    .replace(/\bUTC\b/i, " UTC");
-
-  const direct = new Date(normalized);
-
-  if (!Number.isNaN(direct.getTime())) {
-    return direct;
   }
 
   return null;
@@ -305,36 +398,66 @@ function parseDateValue(value) {
 
 function extractDates(text) {
   const patterns = [
-    /Event period\s*:\s*([A-Z][a-z]+\s+\d{1,2},\s+\d{4},?\s*\d{1,2}:\d{2}\s*(?:AM|PM)?\s*UTC?)\s*(?:–|-|—|to)\s*([A-Z][a-z]+\s+\d{1,2},\s+\d{4},?\s*\d{1,2}:\d{2}\s*(?:AM|PM)?\s*UTC?)/i,
+    /Event period\s*[:：]?\s*([\s\S]{0,180}?)(?:–|-|—|to|until)\s*([\s\S]{0,180})/i,
 
-    /(?:Activity period|Campaign period|Promotion period)\s*:\s*([A-Z][a-z]+\s+\d{1,2},\s+\d{4}[^–—-]{0,50})\s*(?:–|-|—|to)\s*([A-Z][a-z]+\s+\d{1,2},\s+\d{4}[^.]{0,50})/i,
+    /(?:Activity period|Campaign period|Promotion period)\s*[:：]?\s*([\s\S]{0,180}?)(?:–|-|—|to|until)\s*([\s\S]{0,180})/i,
 
-    /([A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s*,?\s*\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*UTC)?)\s*(?:–|-|—|to)\s*([A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s*,?\s*\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*UTC)?)/i,
-
-    /(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2})?)\s*(?:–|-|—|to)\s*(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2})?)/i
+    /([A-Z][a-z]+\s+\d{1,2},?\s+\d{4}[^–—-]{0,80})(?:–|-|—|to|until)([A-Z][a-z]+\s+\d{1,2},?\s+\d{4}[^.]{0,80})/i
   ];
 
   for (const pattern of patterns) {
-    const match = text.match(pattern);
+    const match =
+      text.match(pattern);
 
     if (!match) {
       continue;
     }
 
+    /*
+      نبحث عن أول تاريخ صالح في الجزء
+      الأول والثاني بدل افتراض صيغة واحدة.
+    */
+
+    const leftMatch =
+      match[1].match(
+        /[A-Z][a-z]+\s+\d{1,2},?\s+\d{4}(?:[^a-zA-Z0-9]{0,12}\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*UTC)?)?/i
+      );
+
+    const rightMatch =
+      match[2].match(
+        /[A-Z][a-z]+\s+\d{1,2},?\s+\d{4}(?:[^a-zA-Z0-9]{0,12}\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*UTC)?)?/i
+      );
+
+    if (!leftMatch || !rightMatch) {
+      continue;
+    }
+
     const start =
-      parseDateValue(match[1]);
+      new Date(
+        leftMatch[0]
+      );
 
     const end =
-      parseDateValue(match[2]);
+      new Date(
+        rightMatch[0]
+      );
 
     if (
-      start &&
-      end &&
+      !Number.isNaN(
+        start.getTime()
+      ) &&
+      !Number.isNaN(
+        end.getTime()
+      ) &&
       end > start
     ) {
       return {
         start,
-        end
+        end,
+        startText:
+          leftMatch[0],
+        endText:
+          rightMatch[0]
       };
     }
   }
@@ -344,24 +467,28 @@ function extractDates(text) {
 
 function extractVolume(text) {
   const patterns = [
-    /minimum trading volume[^0-9]{0,80}([\d,.]+)\s*(?:USDT|USDC|USD)/i,
-    /trading volume[^0-9]{0,80}([\d,.]+)\s*(?:USDT|USDC|USD)/i,
-    /trade volume[^0-9]{0,80}([\d,.]+)\s*(?:USDT|USDC|USD)/i,
-    /minimum volume[^0-9]{0,80}([\d,.]+)\s*(?:USDT|USDC|USD)/i
+    /(?:minimum trading volume|trading volume|trade volume|minimum volume)[^0-9]{0,100}([\d,.]+)\s*(?:USDT|USDC|USD)/i
   ];
 
   for (const pattern of patterns) {
-    const match = text.match(pattern);
+    const match =
+      text.match(pattern);
 
     if (!match) {
       continue;
     }
 
-    const value = Number(
-      match[1].replace(/,/g, "")
-    );
+    const value =
+      Number(
+        match[1].replace(
+          /,/g,
+          ""
+        )
+      );
 
-    if (Number.isFinite(value)) {
+    if (
+      Number.isFinite(value)
+    ) {
       return value;
     }
   }
@@ -371,22 +498,28 @@ function extractVolume(text) {
 
 function extractDeposit(text) {
   const patterns = [
-    /minimum deposit[^0-9]{0,80}([\d,.]+)\s*(?:USDT|USDC|USD)/i,
-    /deposit at least[^0-9]{0,80}([\d,.]+)\s*(?:USDT|USDC|USD)/i
+    /(?:minimum deposit|deposit at least|deposit requirement|deposit required)[^0-9]{0,100}([\d,.]+)\s*(?:USDT|USDC|USD)/i
   ];
 
   for (const pattern of patterns) {
-    const match = text.match(pattern);
+    const match =
+      text.match(pattern);
 
     if (!match) {
       continue;
     }
 
-    const value = Number(
-      match[1].replace(/,/g, "")
-    );
+    const value =
+      Number(
+        match[1].replace(
+          /,/g,
+          ""
+        )
+      );
 
-    if (Number.isFinite(value)) {
+    if (
+      Number.isFinite(value)
+    ) {
       return value;
     }
   }
@@ -399,21 +532,31 @@ function detectTradeType(text) {
     text.toLowerCase();
 
   if (
-    value.includes("copy trading")
+    value.includes(
+      "copy trading"
+    )
   ) {
     return "Copy Trading";
   }
 
   if (
-    value.includes("derivatives") ||
-    value.includes("futures") ||
-    value.includes("perpetual")
+    value.includes(
+      "futures"
+    ) ||
+    value.includes(
+      "perpetual"
+    ) ||
+    value.includes(
+      "derivatives"
+    )
   ) {
     return "Derivatives";
   }
 
   if (
-    value.includes("spot")
+    value.includes(
+      "spot"
+    )
   ) {
     return "Spot";
   }
@@ -439,17 +582,6 @@ function detectEligibility(text) {
     };
   }
 
-  if (
-    value.includes(
-      "existing users only"
-    )
-  ) {
-    return {
-      newUsersOnly: false,
-      existingUsersAllowed: true
-    };
-  }
-
   return {
     newUsersOnly: false,
     existingUsersAllowed: true
@@ -462,7 +594,7 @@ function extractTaskRewards(text) {
       /[\n.!?]+/
     );
 
-  const tasks = [];
+  const results = [];
 
   for (const line of lines) {
     const value =
@@ -473,137 +605,54 @@ function extractTaskRewards(text) {
     }
 
     if (
-      /(earn|get|receive|reward|bonus|win|lucky draw)/i.test(
+      /(earn|get|receive|reward|bonus|win|chance)/i.test(
         value
       ) &&
       /\d/.test(value)
     ) {
-      tasks.push(
+      results.push(
         value.slice(0, 300)
       );
     }
   }
 
   return [
-    ...new Set(tasks)
+    ...new Set(results)
   ].slice(0, 20);
 }
 
-async function supabaseRequest(
-  path,
-  options = {}
+function getStatus(
+  start,
+  end
 ) {
-  if (!SUPABASE_URL) {
-    throw new Error(
-      "SUPABASE_URL is not configured"
-    );
-  }
-
-  if (!SUPABASE_KEY) {
-    throw new Error(
-      "SUPABASE_PUBLISHABLE_KEY is not configured"
-    );
-  }
-
-  const response =
-    await fetch(
-      `${SUPABASE_URL}${path}`,
-      {
-        ...options,
-        headers: {
-          apikey:
-            SUPABASE_KEY,
-          Authorization:
-            `Bearer ${SUPABASE_KEY}`,
-          "Content-Type":
-            "application/json",
-          ...(options.headers || {})
-        }
-      }
-    );
-
-  const text =
-    await response.text();
-
-  let data = null;
-
-  try {
-    data = text
-      ? JSON.parse(text)
-      : null;
-  } catch {
-    data = text;
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message ||
-      data?.hint ||
-      data?.details ||
-      `Supabase HTTP ${response.status}`
-    );
-  }
-
-  return data;
-}
-
-async function getExistingEvents() {
-  return supabaseRequest(
-    `/rest/v1/events?select=id,slug,official_url&platform_id=eq.${PLATFORM_ID}`
-  );
-}
-
-async function insertEvent(event) {
-  return supabaseRequest(
-    "/rest/v1/events",
-    {
-      method: "POST",
-      headers: {
-        Prefer:
-          "return=representation"
-      },
-      body:
-        JSON.stringify(event)
-    }
-  );
-}
-
-async function updateEvent(
-  eventId,
-  event
-) {
-  return supabaseRequest(
-    `/rest/v1/events?id=eq.${encodeURIComponent(
-      eventId
-    )}`,
-    {
-      method: "PATCH",
-      headers: {
-        Prefer:
-          "return=minimal"
-      },
-      body:
-        JSON.stringify(event)
-    }
-  );
-}
-
-function buildEvent(data) {
   const now =
     new Date();
 
-  let status =
-    "active";
-
-  if (now < data.start) {
-    status = "upcoming";
-  } else if (now > data.end) {
-    status = "ended";
+  if (
+    now < start
+  ) {
+    return "upcoming";
   }
 
+  if (
+    now > end
+  ) {
+    return "ended";
+  }
+
+  return "active";
+}
+
+/* =========================
+   Build DB object
+========================= */
+
+function buildEvent(data) {
   return {
     slug:
-      slugify(data.title),
+      slugify(
+        data.title
+      ),
 
     platform_id:
       PLATFORM_ID,
@@ -632,7 +681,11 @@ function buildEvent(data) {
       data.tradeType ||
       "campaign",
 
-    status,
+    status:
+      getStatus(
+        data.start,
+        data.end
+      ),
 
     start_at:
       data.start.toISOString(),
@@ -701,6 +754,10 @@ function buildEvent(data) {
   };
 }
 
+/* =========================
+   Main
+========================= */
+
 export default async function handler(
   req,
   res
@@ -738,14 +795,15 @@ export default async function handler(
       });
     }
 
-    const links =
-      extractLinks(
+    const candidates =
+      extractListingLinks(
         listing.html
       )
-      .filter((item) =>
-        isCampaign(
-          item.title
-        )
+      .filter(
+        (item) =>
+          isCampaign(
+            item.title
+          )
       )
       .slice(
         0,
@@ -753,10 +811,14 @@ export default async function handler(
       );
 
     report.candidates =
-      links.length;
+      candidates.length;
 
     const existing =
-      await getExistingEvents();
+      await supabaseRequest(
+        "/rest/v1/events" +
+          "?select=id,slug,official_url" +
+          `&platform_id=eq.${PLATFORM_ID}`
+      );
 
     const bySlug =
       new Map();
@@ -764,7 +826,7 @@ export default async function handler(
     const byUrl =
       new Map();
 
-    for (const row of existing) {
+    for (const row of existing || []) {
       if (row.slug) {
         bySlug.set(
           row.slug,
@@ -780,7 +842,14 @@ export default async function handler(
       }
     }
 
-    for (const candidate of links) {
+    /*
+      الحد الأقصى 5 صفحات فقط
+      في كل تشغيل.
+    */
+
+    for (
+      const candidate of candidates
+    ) {
       report.checked++;
 
       try {
@@ -795,8 +864,6 @@ export default async function handler(
           report.details.push({
             title:
               candidate.title,
-            url:
-              candidate.url,
             outcome:
               "skipped",
             reason:
@@ -812,13 +879,13 @@ export default async function handler(
           );
 
         const title =
-          getTitle(
+          extractTitle(
             page.html,
             candidate.title
           );
 
         const description =
-          getDescription(
+          extractDescription(
             page.html
           );
 
@@ -832,36 +899,11 @@ export default async function handler(
             text
           );
 
-        const imageUrl =
-          getImage(
-            page.html,
-            page.url
-          );
-
-        const volumeRequired =
-          extractVolume(
-            text
-          );
-
-        const depositRequired =
-          extractDeposit(
-            text
-          );
-
-        const tradeType =
-          detectTradeType(
-            text
-          );
-
-        const eligibility =
-          detectEligibility(
-            text
-          );
-
-        const taskRewards =
-          extractTaskRewards(
-            text
-          );
+        /*
+          هنا الشرط الأساسي:
+          لا نضيف/نحدث إلا عند وجود
+          مكافأة + بداية + نهاية.
+        */
 
         if (
           !reward ||
@@ -872,8 +914,6 @@ export default async function handler(
 
           report.details.push({
             title,
-            url:
-              page.url,
             outcome:
               "skipped",
             reason:
@@ -883,28 +923,63 @@ export default async function handler(
           continue;
         }
 
-        const event =
-          buildEvent({
-            title,
-            description,
-            reward,
-            imageUrl,
-            start:
-              dates.start,
-            end:
-              dates.end,
-            volumeRequired,
-            depositRequired,
-            tradeType,
-            eligibility,
-            taskRewards,
-            kycRequired:
-              /\bkyc\b/i.test(
-                text
-              ),
-            officialUrl:
+        const data = {
+          title,
+
+          description,
+
+          reward,
+
+          start:
+            dates.start,
+
+          end:
+            dates.end,
+
+          imageUrl:
+            extractImage(
+              page.html,
               page.url
-          });
+            ),
+
+          volumeRequired:
+            extractVolume(
+              text
+            ),
+
+          depositRequired:
+            extractDeposit(
+              text
+            ),
+
+          tradeType:
+            detectTradeType(
+              text
+            ),
+
+          eligibility:
+            detectEligibility(
+              text
+            ),
+
+          kycRequired:
+            /\bkyc\b/i.test(
+              text
+            ),
+
+          taskRewards:
+            extractTaskRewards(
+              text
+            ),
+
+          officialUrl:
+            page.url
+        };
+
+        const event =
+          buildEvent(
+            data
+          );
 
         const existingRow =
           byUrl.get(
@@ -915,9 +990,21 @@ export default async function handler(
           );
 
         if (existingRow) {
-          await updateEvent(
-            existingRow.id,
-            event
+          await supabaseRequest(
+            `/rest/v1/events?id=eq.${encodeURIComponent(
+              existingRow.id
+            )}`,
+            {
+              method: "PATCH",
+              headers: {
+                Prefer:
+                  "return=minimal"
+              },
+              body:
+                JSON.stringify(
+                  event
+                )
+            }
           );
 
           report.updated++;
@@ -935,8 +1022,19 @@ export default async function handler(
               )
           });
         } else {
-          await insertEvent(
-            event
+          await supabaseRequest(
+            "/rest/v1/events",
+            {
+              method: "POST",
+              headers: {
+                Prefer:
+                  "return=representation"
+              },
+              body:
+                JSON.stringify(
+                  event
+                )
+            }
           );
 
           report.created++;
@@ -984,4 +1082,10 @@ export default async function handler(
         error.message
     });
   }
+}
+
+function getVisibleText(html) {
+  return cleanText(
+    stripHtml(html)
+  );
 }
