@@ -1,10 +1,14 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
 
-const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const TELEGRAM_TOKEN =
+  process.env.TELEGRAM_BOT_TOKEN;
 
-const TELEGRAM_CHANNEL_USERNAME = "BybitEvents1";
+const TELEGRAM_CHAT_ID =
+  process.env.TELEGRAM_CHAT_ID;
+
+const TELEGRAM_CHANNEL_USERNAME =
+  "BybitEvents1";
 
 /* =========================================================
    Helpers
@@ -19,7 +23,9 @@ function escapeHtml(value = "") {
 }
 
 function formatDate(value) {
-  if (!value) return "غير محدد";
+  if (!value) {
+    return "غير محدد";
+  }
 
   const date = new Date(value);
 
@@ -27,8 +33,8 @@ function formatDate(value) {
     return "غير محدد";
   }
 
-  const pad = (n) =>
-    String(n).padStart(2, "0");
+  const pad = (number) =>
+    String(number).padStart(2, "0");
 
   return `${pad(date.getUTCDate())}/${pad(
     date.getUTCMonth() + 1
@@ -58,7 +64,7 @@ function getDescription(event) {
   return (
     event.description_ar ||
     event.description_en ||
-    "راجع التفاصيل الرسمية للحدث."
+    "راجع تفاصيل الحدث الرسمية."
   );
 }
 
@@ -68,18 +74,6 @@ function getReward(event) {
     event.reward_en ||
     "راجع تفاصيل المكافأة الرسمية."
   );
-}
-
-function getEligibility(event) {
-  if (event.new_users_only === true) {
-    return "المستخدمون الجدد فقط";
-  }
-
-  if (event.existing_users_allowed === false) {
-    return "المستخدمون الجدد فقط";
-  }
-
-  return "جميع المستخدمين المؤهلين";
 }
 
 /* =========================================================
@@ -93,11 +87,15 @@ function buildRequirements(event) {
     lines.push("• التسجيل في الحدث");
   }
 
-  lines.push(
-    `• المؤهلون: ${escapeHtml(
-      getEligibility(event)
-    )}`
-  );
+  if (event.new_users_only === true) {
+    lines.push(
+      "• المؤهلون: المستخدمون الجدد فقط"
+    );
+  } else {
+    lines.push(
+      "• المؤهلون: جميع المستخدمين المؤهلين"
+    );
+  }
 
   if (event.kyc_required === true) {
     lines.push("• KYC مطلوب");
@@ -133,17 +131,6 @@ function buildRequirements(event) {
     );
   }
 
-  if (
-    event.min_trade !== null &&
-    event.min_trade !== undefined
-  ) {
-    lines.push(
-      `• الحد الأدنى للصفقة: ${escapeHtml(
-        event.min_trade
-      )} USDT`
-    );
-  }
-
   if (event.region_restrictions) {
     lines.push(
       `• ملاحظة الأهلية: ${escapeHtml(
@@ -153,53 +140,51 @@ function buildRequirements(event) {
   }
 
   if (Array.isArray(event.task_rewards)) {
-    event.task_rewards.forEach((task) => {
-      if (!task) return;
+    for (const task of event.task_rewards) {
+      if (!task) {
+        continue;
+      }
 
       if (typeof task === "string") {
         lines.push(
           `• ${escapeHtml(task)}`
         );
-        return;
+        continue;
       }
 
-      const taskName =
+      const name =
         task.name ||
         task.title ||
         "مهمة";
 
-      const taskReward =
+      const reward =
         task.reward ||
         task.amount ||
         "";
 
-      if (taskReward) {
+      if (reward) {
         lines.push(
           `• ${escapeHtml(
-            taskName
+            name
           )}: ${escapeHtml(
-            taskReward
+            reward
           )}`
         );
       } else {
         lines.push(
-          `• ${escapeHtml(
-            taskName
-          )}`
+          `• ${escapeHtml(name)}`
         );
       }
-    });
+    }
   }
 
-  if (lines.length === 0) {
-    return "• راجع شروط الحدث الرسمية";
-  }
-
-  return lines.join("\n");
+  return lines.length
+    ? lines.join("\n")
+    : "• راجع شروط الحدث الرسمية";
 }
 
 /* =========================================================
-   Final Caption
+   Caption
 ========================================================= */
 
 function buildCaption(event) {
@@ -239,9 +224,9 @@ function buildCaption(event) {
     "",
 
     "👤 <b>المؤهلون</b>",
-    `• ${escapeHtml(
-      getEligibility(event)
-    )}`,
+    event.new_users_only === true
+      ? "• المستخدمون الجدد فقط"
+      : "• جميع المستخدمين المؤهلين",
 
     "",
 
@@ -369,7 +354,7 @@ async function supabaseRequest(
       data?.message ||
         data?.hint ||
         data?.details ||
-        `Supabase error: ${response.status}`
+        `Supabase error ${response.status}`
     );
   }
 
@@ -421,7 +406,7 @@ async function telegramRequest(
   ) {
     throw new Error(
       data?.description ||
-        `Telegram error: ${response.status}`
+        `Telegram error ${response.status}`
     );
   }
 
@@ -429,7 +414,7 @@ async function telegramRequest(
 }
 
 /* =========================================================
-   Published Today?
+   Today's Logs
 ========================================================= */
 
 async function wasPublishedToday(
@@ -459,12 +444,33 @@ async function wasPublishedToday(
 }
 
 /* =========================================================
-   Get Active Events
+   NEW EVENTS ONLY
 ========================================================= */
 
-async function getActiveEvents() {
+async function getNewEvents() {
+  /*
+    بداية اليوم UTC.
+
+    أي حدث قديم من الأيام السابقة
+    لن يدخل قائمة النشر.
+  */
+
+  const startOfToday =
+    new Date();
+
+  startOfToday.setUTCHours(
+    0,
+    0,
+    0,
+    0
+  );
+
   const now =
-    new Date().toISOString();
+    new Date()
+      .toISOString();
+
+  const start =
+    startOfToday.toISOString();
 
   const path =
     `/rest/v1/events` +
@@ -476,7 +482,10 @@ async function getActiveEvents() {
     `&end_at=gte.${encodeURIComponent(
       now
     )}` +
-    `&order=priority.desc,start_at.asc`;
+    `&created_at=gte.${encodeURIComponent(
+      start
+    )}` +
+    `&order=created_at.asc,id.asc`;
 
   const data =
     await supabaseRequest(
@@ -495,8 +504,7 @@ async function getActiveEvents() {
 async function savePostLog({
   eventId,
   messageId,
-  messageUrl,
-  postType = "daily_event"
+  messageUrl
 }) {
   await supabaseRequest(
     "/rest/v1/event_post_logs",
@@ -522,8 +530,7 @@ async function savePostLog({
             Number(messageId),
 
           telegram_message_url:
-            messageUrl ||
-            null,
+            messageUrl,
 
           publish_date:
             new Date()
@@ -533,22 +540,20 @@ async function savePostLog({
           published_at:
             new Date().toISOString(),
 
-          post_type
+          post_type:
+            "daily_event"
         })
     }
   );
 }
 
 /* =========================================================
-   Validate Image URL
+   Image Check
 ========================================================= */
 
-function hasValidImageUrl(
-  event
-) {
+function hasImage(event) {
   if (
-    !event ||
-    !event.image_url
+    !event?.image_url
   ) {
     return false;
   }
@@ -560,8 +565,8 @@ function hasValidImageUrl(
       );
 
     return (
-      url.protocol === "http:" ||
-      url.protocol === "https:"
+      url.protocol === "https:" ||
+      url.protocol === "http:"
     );
   } catch {
     return false;
@@ -569,7 +574,7 @@ function hasValidImageUrl(
 }
 
 /* =========================================================
-   Publish
+   MAIN
 ========================================================= */
 
 export default async function handler(
@@ -585,44 +590,45 @@ export default async function handler(
   }
 
   try {
-    const events =
-      await getActiveEvents();
+    /*
+      مهم:
+      نجيب الأحداث المنشأة اليوم فقط.
+    */
 
-    if (events.length === 0) {
+    const events =
+      await getNewEvents();
+
+    if (!events.length) {
       return res.status(200).json({
         success: true,
         published: 0,
         message:
-          "لا توجد أحداث نشطة حاليًا."
+          "لا توجد أحداث جديدة مستحقة للنشر."
       });
     }
 
-    const unpublished = [];
+    const candidates = [];
 
-    for (
-      const event of events
-    ) {
-      const published =
+    for (const event of events) {
+      const alreadyPublished =
         await wasPublishedToday(
           event.id
         );
 
-      if (!published) {
-        unpublished.push(
+      if (!alreadyPublished) {
+        candidates.push(
           event
         );
       }
     }
 
-    if (
-      unpublished.length === 0
-    ) {
+    if (!candidates.length) {
       return res.status(200).json({
         success: true,
         published: 0,
         message:
-          "كل الأحداث النشطة تم نشرها اليوم.",
-        eventsAvailable:
+          "تم نشر جميع الأحداث الجديدة اليوم.",
+        checked:
           events.length
       });
     }
@@ -630,22 +636,22 @@ export default async function handler(
     /*
       حدث واحد فقط في كل تشغيل.
     */
+
     const event =
-      unpublished[0];
+      candidates[0];
 
     const caption =
       buildCaption(event);
 
-    let telegramResult =
-      null;
-
+    let telegramResult = null;
     let imageSent = false;
 
     /*
-      نحاول الصورة أولًا.
+      صورة + Caption
     */
+
     if (
-      hasValidImageUrl(event)
+      hasImage(event)
     ) {
       try {
         telegramResult =
@@ -666,18 +672,19 @@ export default async function handler(
           );
 
         imageSent = true;
-      } catch (imageError) {
+      } catch (error) {
         console.warn(
-          `Image send failed for event ${event.id}:`,
-          imageError.message
+          "sendPhoto failed:",
+          error.message
         );
       }
     }
 
     /*
-      لو الصورة غير موجودة أو رفضها Telegram
-      نرسل النص بدلًا منها حتى لا يضيع الحدث.
+      إذا لم تنجح الصورة،
+      لا نفقد الحدث.
     */
+
     if (!telegramResult) {
       telegramResult =
         await telegramRequest(
@@ -734,6 +741,9 @@ export default async function handler(
       platform:
         getPlatformName(event),
 
+      createdAt:
+        event.created_at,
+
       imageSent,
 
       imageUrl:
@@ -746,8 +756,8 @@ export default async function handler(
       telegramMessageUrl:
         messageUrl,
 
-      remainingToday:
-        unpublished.length - 1
+      remainingNewEvents:
+        candidates.length - 1
     });
 
   } catch (error) {
